@@ -16,12 +16,12 @@ def play_once(
     audio_file: Path,
     pre_connect_seconds: int = 10,
     connect_retry_seconds: int = 20,
-    disconnect_after_play: bool = True,
+    disconnect_after_play: bool = False,
     sink_volume_percent: int = 100,
 ) -> Dict[str, Any]:
     if not audio_file.exists():
         raise PlaybackError(f"Audio file not found: {audio_file}")
-    if bluetooth.is_connected(mac) and bluetooth.detect_sink(mac):
+    if bluetooth.is_connected(mac):
         connect_result = {"status": "already connected", "stdout": "", "stderr": ""}
     else:
         connect_result = bluetooth.connect(mac, retry_seconds=connect_retry_seconds)
@@ -58,4 +58,3 @@ def stop_playback() -> Dict[str, Any]:
     if pids:
         return {"code": 0, "stdout": f"killed {','.join(pids)}", "stderr": ""}
     return {"code": kill.returncode, "stdout": ps.stdout.strip(), "stderr": kill.stderr.strip()}
-

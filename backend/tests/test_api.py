@@ -8,6 +8,7 @@ def test_first_run_upload_workflow() -> None:
         assert client.get("/api/health").status_code == 200
         settings = client.get("/api/settings").json()
         assert settings["echo_mac"] == ""
+        assert settings["disconnect_after_play"] == "0"
 
         csv_data = b"date,fajr,shurooq,dhuhr,asr,maghrib,isha\n2026-08-10,03:46,05:41,13:20,17:21,20:53,21:58\n"
         response = client.post("/api/timetable/upload", files={"file": ("times.csv", csv_data, "text/csv")})

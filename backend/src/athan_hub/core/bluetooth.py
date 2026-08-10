@@ -9,9 +9,9 @@ class BluetoothError(Exception):
     pass
 
 
-def _run(args: list[str]) -> Tuple[int, str, str]:
+def _run(args: list[str], timeout_seconds: int = 35) -> Tuple[int, str, str]:
     try:
-        proc = subprocess.run(args, capture_output=True, text=True, timeout=35)
+        proc = subprocess.run(args, capture_output=True, text=True, timeout=timeout_seconds)
     except subprocess.TimeoutExpired as exc:
         raise BluetoothError(f"Bluetooth command timed out: {shlex.join(args)}") from exc
     return proc.returncode, proc.stdout.strip(), proc.stderr.strip()
@@ -75,8 +75,19 @@ def connect(mac: str, retry_seconds: int = 20) -> Dict[str, str]:
         return {"status": "connected", "stdout": "already connected", "stderr": ""}
     deadline = time.time() + retry_seconds
     last_error = ""
+    attempt_timeout = min(8, max(1, retry_seconds))
     while time.time() < deadline:
-        code, out, err = _run(["bluetoothctl", "connect", mac])
+        try:
+            code, out, err = _run(
+                ["bluetoothctl", "connect", mac],
+                timeout_seconds=attempt_timeout,
+            )
+        except BluetoothError as exc:
+            last_error = str(exc)
+            if is_connected(mac) or detect_sink(mac):
+                return {"status": "connected", "stdout": "connected after command timeout", "stderr": last_error}
+            time.sleep(2)
+            continue
         if code == 0 or "connection successful" in out.lower():
             return {"status": "connected", "stdout": out, "stderr": err}
         err_l = (err or "").lower()

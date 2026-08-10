@@ -13,7 +13,7 @@ DEFAULTS = {
     "pre_connect_seconds": 10,
     "connect_retry_seconds": 20,
     "grace_seconds": 120,
-    "disconnect_after_play": 1,
+    "disconnect_after_play": 0,
     "sink_volume_percent": 140,
 }
 
@@ -90,7 +90,7 @@ def test_play(db: Session, audio_file: Path) -> Dict[str, Any]:
     args = {
         "pre_connect_seconds": _get_int(db, "pre_connect_seconds", DEFAULTS["pre_connect_seconds"]),
         "connect_retry_seconds": _get_int(db, "connect_retry_seconds", DEFAULTS["connect_retry_seconds"]),
-        "disconnect_after_play": _get_bool(db, "disconnect_after_play", True),
+        "disconnect_after_play": _get_bool(db, "disconnect_after_play", False),
         "sink_volume_percent": _get_int(db, "sink_volume_percent", 140),
     }
 

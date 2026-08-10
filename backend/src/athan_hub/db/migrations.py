@@ -7,7 +7,7 @@ DEFAULT_SETTINGS = {
     "pre_connect_seconds": "10",
     "connect_retry_seconds": "20",
     "grace_seconds": "120",
-    "disconnect_after_play": "1",
+    "disconnect_after_play": "0",
     "echo_mac": "",
     "sink_volume_percent": "100",
     "dashboard_background": "bg.png",
