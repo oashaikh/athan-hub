@@ -177,11 +177,24 @@ textarea,
 }
 
 .material-icons {
+  display: inline-block;
   width: 1em;
   overflow: hidden;
+  direction: ltr;
+  font-family: 'Material Icons';
   font-size: var(--icon-md);
+  font-style: normal;
+  font-variant: normal;
+  font-weight: 400;
+  letter-spacing: normal;
   line-height: 1;
+  text-transform: none;
   vertical-align: middle;
+  white-space: nowrap;
+  word-wrap: normal;
+  -webkit-font-feature-settings: 'liga';
+  font-feature-settings: 'liga';
+  -webkit-font-smoothing: antialiased;
 }
 
 .title,

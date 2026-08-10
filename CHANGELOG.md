@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Fixed locally bundled Material Icons rendering as clipped ligature text across the dashboard and navigation.
+
 ## 1.0.0
 
 - Added a hardware-neutral, one-shot Ubuntu/Debian installer.
