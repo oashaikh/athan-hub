@@ -1,0 +1,36 @@
+[Unit]
+Description=Athan Hub Scheduler
+Wants=network-online.target bluetooth.target
+After=network-online.target bluetooth.target athan-hub-api.service
+
+[Service]
+Type=simple
+User=@ATHAN_USER@
+Group=@ATHAN_USER@
+SupplementaryGroups=audio bluetooth
+WorkingDirectory=/opt/athan-hub
+EnvironmentFile=/etc/athan-hub/athan-hub.env
+Environment=HOME=/var/lib/athan-hub
+RuntimeDirectory=athan-hub
+RuntimeDirectoryMode=0755
+Environment=PATH=/opt/athan-hub/backend/venv/bin:/usr/local/bin:/usr/bin:/bin
+Environment=XDG_RUNTIME_DIR=/run/user/@ATHAN_UID@
+Environment=PULSE_SERVER=unix:/run/user/@ATHAN_UID@/pulse/native
+ExecStart=/usr/bin/flock -n /run/athan-hub/scheduler.lock /opt/athan-hub/backend/venv/bin/python -m athan_hub.core.scheduler
+Restart=always
+RestartSec=5
+TimeoutStopSec=30
+UMask=0027
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+ReadWritePaths=/var/lib/athan-hub /var/log/athan-hub /run/user/@ATHAN_UID@ /run/athan-hub
+
+[Install]
+WantedBy=multi-user.target
