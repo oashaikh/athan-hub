@@ -136,4 +136,6 @@ The compiled frontend is committed intentionally so the installer does not need 
 - User MP3s, uploaded timetables, databases, logs, Wi-Fi credentials, and PINs are excluded from Git.
 - See [SECURITY.md](SECURITY.md) for the support policy and private reporting instructions.
 
-This repository is publicly visible but does not currently grant an open-source license. All rights are reserved unless a license is added later.
+## License
+
+Athan Hub is free and open-source software licensed under the [GNU Affero General Public License v3.0](LICENSE). You may use, modify, distribute, and sell it under the license terms. Modified versions offered over a network must make their corresponding source available to users under the same license.
