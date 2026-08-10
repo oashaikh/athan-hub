@@ -37,7 +37,7 @@ def tick() -> None:
                     Path(profile.file_path),
                     pre_connect_seconds=bluetooth_service._get_int(db, "pre_connect_seconds", 10),
                     connect_retry_seconds=bluetooth_service._get_int(db, "connect_retry_seconds", 20),
-                    disconnect_after_play=bluetooth_service._get_bool(db, "disconnect_after_play", True),
+                    disconnect_after_play=bluetooth_service._get_bool(db, "disconnect_after_play", False),
                     sink_volume_percent=bluetooth_service._get_int(db, "sink_volume_percent", 140),
                 )
                 timetable_service.record_playback(db, date_str, prayer, hhmm)
@@ -61,4 +61,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

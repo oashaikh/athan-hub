@@ -24,13 +24,14 @@ UMask=0027
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=full
-ProtectHome=true
+ProtectHome=read-only
+InaccessiblePaths=/home /root
 ProtectKernelTunables=true
 ProtectKernelModules=true
 ProtectControlGroups=true
 RestrictSUIDSGID=true
 LockPersonality=true
-ReadWritePaths=/var/lib/athan-hub /var/log/athan-hub /run/user/@ATHAN_UID@ /run/athan-hub
+ReadWritePaths=/var/lib/athan-hub /var/log/athan-hub /run/athan-hub
 
 [Install]
 WantedBy=multi-user.target
