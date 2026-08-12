@@ -82,3 +82,12 @@ class AdminProfileUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=80)
     gender: Literal["boy", "girl"] | None = None
     theme: Theme | None = None
+
+
+class LeaderboardSettingsUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    enabled: bool
+    repetitions: bool = True
+    daily_practice: bool = True
+    memorised: bool = True
+    surahs: bool = True

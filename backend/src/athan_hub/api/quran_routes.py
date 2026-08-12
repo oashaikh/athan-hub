@@ -1,7 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from .schemas import PracticeStateUpdate, ProgressUpdate
+from .schemas import PracticeStateUpdate, ProgressUpdate, SessionCreate, SessionUpdate
+from ..core.time_utils import now_local
+from ..db import models
 from ..db.session import get_db
 from ..services import quran_service
 
@@ -45,3 +47,49 @@ def profile_state(profile_id: int, payload: PracticeStateUpdate, db: Session = D
 @router.put("/profiles/{profile_id}/progress/{verse_key}")
 def profile_progress(profile_id: int, verse_key: str, payload: ProgressUpdate, db: Session = Depends(get_db)):
     return quran_service.update_progress(db, profile_id, verse_key, payload)
+
+
+@router.post("/profiles/{profile_id}/sessions", status_code=201)
+def create_session(profile_id: int, payload: SessionCreate, db: Session = Depends(get_db)):
+    quran_service.get_public_profile(db, profile_id)
+    quran_service._validate_range(payload.surah_id, payload.start_ayah, payload.end_ayah)
+    if payload.recitation_id is not None and quran_service.resources().recitation(payload.recitation_id) is None:
+        raise HTTPException(422, "Unknown QUL recitation")
+    session = models.QuranSession(
+        profile_id=profile_id,
+        surah_id=payload.surah_id,
+        start_ayah=payload.start_ayah,
+        end_ayah=payload.end_ayah,
+        recitation_id=payload.recitation_id,
+        started_at=now_local().isoformat(),
+    )
+    db.add(session)
+    db.commit()
+    db.refresh(session)
+    return {"id": session.id, "started_at": session.started_at}
+
+
+@router.put("/profiles/{profile_id}/sessions/{session_id}")
+def update_session(profile_id: int, session_id: int, payload: SessionUpdate, db: Session = Depends(get_db)):
+    quran_service.get_public_profile(db, profile_id)
+    session = db.get(models.QuranSession, session_id)
+    if session is None or session.profile_id != profile_id:
+        raise HTTPException(404, "Session not found")
+    from ..services import reward_service
+
+    return reward_service.complete_session(db, session, payload)
+
+
+@router.get("/profiles/{profile_id}/rewards")
+def rewards(profile_id: int, db: Session = Depends(get_db)):
+    quran_service.get_public_profile(db, profile_id)
+    from ..services import reward_service
+
+    return reward_service.profile_rewards(db, profile_id)
+
+
+@router.get("/leaderboard")
+def get_leaderboard(db: Session = Depends(get_db)):
+    from ..services import reward_service
+
+    return reward_service.leaderboard(db)

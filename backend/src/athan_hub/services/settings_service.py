@@ -12,6 +12,8 @@ ALLOWED_SETTINGS = {
     "timezone", "grace_seconds", "echo_mac", "pre_connect_seconds",
     "connect_retry_seconds", "sink_volume_percent", "disconnect_after_play",
     "dashboard_background",
+    "leaderboard_enabled", "leaderboard_repetitions", "leaderboard_daily_practice",
+    "leaderboard_memorised", "leaderboard_surahs", "quran_cache_limit_bytes",
 }
 
 
