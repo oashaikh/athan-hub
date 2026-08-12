@@ -2,3 +2,4 @@
 *.png binary
 *.woff binary
 *.woff2 binary
+resources/quran/quran.sqlite binary
