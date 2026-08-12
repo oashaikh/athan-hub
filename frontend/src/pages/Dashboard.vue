@@ -1,5 +1,6 @@
 <template>
   <div ref="dashboardRoot" class="dashboard" :class="`period-${ambienceKey}`" :style="backgroundStyle">
+    <ChildHeader />
     <div class="dashboard-scrim">
       <div class="daylight-wash" aria-hidden="true"></div>
       <div class="twilight-wash" aria-hidden="true"></div>
@@ -35,7 +36,7 @@
           <p class="section-kicker">Prayer timetable unavailable</p>
           <h1>There are no prayer times to show.</h1>
           <p>Open Timetable settings to import or review the schedule.</p>
-          <router-link class="button is-primary" to="/settings?tab=timetable">Open timetable settings</router-link>
+          <router-link class="button is-primary" to="/admin/system">Open timetable settings</router-link>
         </section>
 
         <template v-else>
@@ -101,7 +102,7 @@
       <footer class="dashboard-footer" data-reveal="footer">
         <span>{{ today?.date ? 'Timetable synced' : 'No timetable loaded' }}</span>
         <span class="footer-rule" aria-hidden="true"></span>
-        <span>Europe/London</span>
+        <span>{{ timezone }}</span>
       </footer>
     </div>
   </div>
@@ -111,6 +112,7 @@
 import { computed, inject, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import api from '../api'
 import SolarArc from '../components/SolarArc.vue'
+import ChildHeader from '../components/ChildHeader.vue'
 import { animateCounter, animateDashboardEntrance, animatePrayerState } from '../motion'
 import { computeSolarState, type SolarSchedule } from '../solar'
 
@@ -120,6 +122,7 @@ const countdownElement = ref<HTMLElement | null>(null)
 const next = ref<any>(null)
 const today = ref<any>(null)
 const background = ref('')
+const timezone = ref('Europe/London')
 const now = ref(new Date())
 const loading = ref(true)
 const loadError = ref(false)
@@ -228,12 +231,13 @@ const load = async () => {
   const results = await Promise.allSettled([
     api.get('/timetable/next'),
     api.get('/timetable/day', { params: { date: localDateString(new Date()) } }),
-    api.get('/settings')
+    api.get('/public/config')
   ])
   const value = (index: number) => results[index].status === 'fulfilled' ? (results[index] as PromiseFulfilledResult<any>).value.data : null
   next.value = value(0)
   today.value = value(1)
   background.value = value(2)?.dashboard_background || ''
+  timezone.value = value(2)?.timezone || 'Europe/London'
   loadError.value = !value(0) || !value(1)
   loading.value = false
 }

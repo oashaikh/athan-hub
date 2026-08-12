@@ -1,1 +1,20 @@
-Copyright 2026 oashaikh
+Athan Hub
+Copyright 2026 Osama Shaikh
+
+Athan Hub application code is licensed under the GNU Affero General Public
+License version 3. See LICENSE.
+
+The generated Quran resource snapshot in resources/quran is not relicensed
+under the Athan Hub licence. Its source-specific notices, attribution, pinned
+upstream revision, download URLs, and checksums are recorded in
+resources/quran/NOTICE.md and resources/quran/manifest.json.
+
+Quranic Universal Library (QUL) is maintained by Tarteel AI. Its application
+source is licensed under the MIT License. Athan Hub is an independent project
+and is not endorsed by or affiliated with Tarteel AI, QUL, the King Fahd
+Complex, Saheeh International, or any recitation provider.
+
+Bundled frontend font packages retain their upstream licences in the installed
+npm packages and compiled font metadata. Material Icons is provided under the
+Apache License 2.0. Inter, Manrope, and Noto Naskh Arabic are provided under the
+SIL Open Font License 1.1.

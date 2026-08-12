@@ -1,8 +1,13 @@
 # Changelog
 
-## Unreleased
+## 2.0.0
 
 - Fixed locally bundled Material Icons rendering as clipped ligature text across the dashboard and navigation.
+- Added a child-safe Quran memorisation workspace with 114 surahs, 6,236 ayahs, translation, transliteration, and 139 pinned QUL recitations.
+- Added admin-created child profiles with independent preferences, progress, sessions, rewards, streaks, badges, and three themes.
+- Added safe on-demand Quran audio caching with host validation, atomic writes, cache limits, and LRU eviction.
+- Added measured Athan playback state so scheduled Athan stops Quran audio and locks child interaction for the recording duration.
+- Reworked public and admin authorization so prayer and Quran child experiences remain public while system/profile administration requires the PIN.
 
 ## 1.0.0
 

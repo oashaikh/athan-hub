@@ -1,8 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse
+from starlette.background import BackgroundTask
 from sqlalchemy.orm import Session
 
 from .schemas import PracticeStateUpdate, ProgressUpdate, SessionCreate, SessionUpdate
+from ..core.config import get_settings
 from ..core.time_utils import now_local
 from ..db import models
 from ..db.session import get_db
@@ -47,7 +49,41 @@ def quran_audio(
         raise HTTPException(400, str(exc)) from exc
     except (OSError, TimeoutError) as exc:
         raise HTTPException(503, "Quran audio is temporarily unavailable") from exc
-    return FileResponse(path, media_type="audio/mpeg", filename=path.name)
+    quran_cache_service.mark_streaming(path)
+    return FileResponse(
+        path,
+        media_type="audio/mpeg",
+        filename=path.name,
+        background=BackgroundTask(quran_cache_service.release_streaming, path),
+    )
+
+
+@router.get("/recitations/{recitation_id}/segments")
+def quran_segments(
+    recitation_id: int,
+    surah_id: int,
+    start_ayah: int,
+    end_ayah: int,
+):
+    from ..services import quran_cache_service
+
+    quran_service._validate_range(surah_id, start_ayah, end_ayah)
+    recitation = quran_service.resources().recitation(recitation_id)
+    if recitation is None:
+        raise HTTPException(404, "Recitation not found")
+    try:
+        surah = next(row for row in quran_service.resources().list_surahs() if row["id"] == surah_id)
+        return quran_cache_service.segment_manifest(
+            recitation,
+            surah_id,
+            1,
+            surah["ayah_count"],
+            get_settings().quran_cache_dir,
+        )
+    except quran_cache_service.CacheSourceError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    except (OSError, TimeoutError) as exc:
+        raise HTTPException(503, "QUL verse timing is temporarily unavailable") from exc
 
 
 @router.get("/profiles")

@@ -13,6 +13,10 @@ def test_runtime_state_lifecycle_and_stale_expiry(tmp_path):
     assert active["prayer"] == "asr"
     assert active["remaining_seconds"] == 1
 
+    assert store.read_active(started + dt.timedelta(seconds=2), grace_seconds=120) is None
+    assert not store.path.exists()
+
+    store.write_active("asr", 4, 2.0, started)
     assert store.read_active(started + dt.timedelta(seconds=123), grace_seconds=120) is None
     assert not store.path.exists()
 

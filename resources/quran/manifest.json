@@ -1,16 +1,19 @@
 {
+  "qul_mirror": "https://github.com/oashaikh/quranic-universal-library",
   "audio_hosts": [
     "audio.qurancdn.com",
     "audio-cdn.tarteel.ai",
     "download.quranicaudio.com",
+    "mirrors.quranicaudio.com",
     "everyayah.com",
     "versebyversequran.com"
   ],
   "database": {
+    "audio_objects": 138286,
     "ayahs": 6236,
     "filename": "quran.sqlite",
     "recitations": 139,
-    "sha256": "aa7f673fb10969412ffe96547d436bba26afc27dfed417de3ebe8e93b076f151",
+    "sha256": "6c6b3141ca7f2efdbc4bae41bb6081c0e9863eb990fb99fc40760f616ec8f93c",
     "surahs": 114
   },
   "datasets": [
@@ -166,5 +169,6 @@
   ],
   "qul_commit": "334206a60f8d99af13bab483a2e9c29cdec49d08",
   "qul_repository": "https://github.com/TarteelAI/quranic-universal-library",
-  "schema_version": 1
+  "schema_version": 1,
+  "snapshot_at": "2026-08-11T13:58:33Z"
 }

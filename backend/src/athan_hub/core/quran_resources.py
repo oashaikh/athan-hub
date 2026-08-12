@@ -55,3 +55,11 @@ class QuranResources:
         with self._connect() as connection:
             row = connection.execute("SELECT * FROM recitations WHERE id = ?", (recitation_id,)).fetchone()
         return dict(row) if row else None
+
+    def audio_object(self, recitation_id: int, content_key: str) -> dict[str, Any] | None:
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT * FROM audio_objects WHERE recitation_id = ? AND content_key = ?",
+                (recitation_id, content_key),
+            ).fetchone()
+        return dict(row) if row else None

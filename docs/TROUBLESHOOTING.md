@@ -48,6 +48,32 @@ journalctl -u athan-hub-scheduler -n 100 --no-pager
 
 Confirm an MP3 profile is enabled and mapped to the prayer being tested. If the device uses a service account other than `athan`, substitute that account in the command.
 
+If an older Athan profile is shown as disabled after an update, its MP3 duration could not be measured safely. Upload the original recording again from **Admin → Prayer system → Athan audio**.
+
+## Quran text appears but a recitation will not play
+
+The first play must download the selected audio object. Check internet access and the cache:
+
+```bash
+curl -I https://audio.qurancdn.com
+sudo du -sh /var/lib/athan-hub/quran-cache
+journalctl -u athan-hub-api -n 100 --no-pager
+```
+
+Try another reciter if the original source is temporarily unavailable. Already cached recordings and all text/progress features remain usable offline.
+
+## Quran playback did not stop for the Athan
+
+Confirm the uploaded Athan has a measured duration and inspect the public state while testing:
+
+```bash
+curl http://127.0.0.1:9000/api/playback/status
+ls -l /run/athan-hub/athan-active.json
+journalctl -u athan-hub-scheduler -n 100 --no-pager
+```
+
+The browser polls once per second. Leave the child page open during the test; audio will not resume automatically after the lock clears.
+
 ## Recover the dashboard PIN
 
 ```bash

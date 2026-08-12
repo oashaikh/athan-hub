@@ -91,3 +91,19 @@ class LeaderboardSettingsUpdate(BaseModel):
     daily_practice: bool = True
     memorised: bool = True
     surahs: bool = True
+
+
+class QuranCacheUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    pinned: bool
+
+
+class QuranPrefetchRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    recitation_id: int = Field(ge=1)
+    surah_id: int | None = Field(default=None, ge=1, le=114)
+
+
+class QuranSettingsUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    quran_cache_limit_bytes: int = Field(ge=64 * 1024 * 1024, le=1024 * 1024 * 1024 * 1024)

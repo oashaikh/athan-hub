@@ -235,6 +235,8 @@ import TimeEditor from '../components/TimeEditor.vue'
 import UploadBox from '../components/UploadBox.vue'
 import { enterPane, leavePane } from '../motion'
 
+const props = defineProps<{ forcedTab?: string }>()
+
 const toast = inject<(message: string, type?: any) => void>('toast') || (() => {})
 const route = useRoute()
 const router = useRouter()
@@ -247,15 +249,16 @@ const sections = [
   { id: 'general', label: 'General', icon: 'tune' }
 ]
 const sectionFromQuery = () => {
-  const query = String(route.query.tab || '').toLowerCase()
+  const query = String(props.forcedTab || route.query.tab || '').toLowerCase()
   return sections.some(item => item.id === query) ? query : 'general'
 }
 const activeSection = ref(sectionFromQuery())
 const activeSectionMeta = computed(() => sections.find(section => section.id === activeSection.value) || sections[5])
-watch(() => route.query.tab, () => { activeSection.value = sectionFromQuery() })
+watch(() => [props.forcedTab, route.query.tab], () => { activeSection.value = sectionFromQuery() })
 const selectSection = (id: string) => {
   activeSection.value = id
-  router.replace({ query: { ...route.query, tab: id } })
+  if (props.forcedTab) router.push(`/admin/${id}`)
+  else router.replace({ query: { ...route.query, tab: id } })
 }
 
 const pageLoading = ref(true)

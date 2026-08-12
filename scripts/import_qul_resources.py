@@ -43,7 +43,8 @@ class _TextExtractor(HTMLParser):
 
 def plain_text(value: str) -> str:
     parser = _TextExtractor()
-    parser.feed(html.unescape(value or ""))
+    without_footnotes = re.sub(r"<sup\b[^>]*>.*?</sup>", " ", html.unescape(value or ""), flags=re.IGNORECASE | re.DOTALL)
+    parser.feed(without_footnotes)
     return re.sub(r"\s+", " ", "".join(parser.parts)).strip()
 
 
@@ -119,6 +120,15 @@ def create_schema(connection: sqlite3.Connection) -> None:
             detail_url TEXT NOT NULL,
             UNIQUE (source_kind, source_id)
         );
+        CREATE TABLE audio_objects (
+            recitation_id INTEGER NOT NULL REFERENCES recitations(id),
+            content_key TEXT NOT NULL,
+            audio_url TEXT NOT NULL,
+            duration REAL,
+            byte_count INTEGER,
+            PRIMARY KEY (recitation_id, content_key)
+        );
+        CREATE INDEX idx_audio_objects_recitation ON audio_objects(recitation_id);
         """
     )
 
@@ -166,6 +176,37 @@ def insert_recitations(
                 path,
             ),
         )
+
+
+def insert_audio_objects(
+    connection: sqlite3.Connection,
+    rows: list[dict[str, Any]],
+    source_kind: str,
+    source_hashes: dict[str, str],
+) -> int:
+    inserted = 0
+    base = AYAH_RECITATIONS_URL if source_kind == "ayah" else SURAH_RECITATIONS_URL
+    for row in rows:
+        source_id = int(row["id"])
+        stable_id = (100_000 if source_kind == "ayah" else 200_000) + source_id
+        url = f"{base}/{source_id}"
+        detail = fetch_json(url, source_hashes)["recitation"]
+        for content_key, audio in sorted(detail.get("audio_files", {}).items()):
+            audio_url = audio.get("audio_url")
+            if not audio_url:
+                continue
+            connection.execute(
+                "INSERT INTO audio_objects VALUES (?, ?, ?, ?, ?)",
+                (
+                    stable_id,
+                    str(content_key),
+                    audio_url,
+                    audio.get("duration"),
+                    audio.get("file_size"),
+                ),
+            )
+            inserted += 1
+    return inserted
 
 
 def build_database(output: Path) -> dict[str, Any]:
@@ -219,16 +260,19 @@ def build_database(output: Path) -> dict[str, Any]:
 
         insert_recitations(connection, ayah_recitations, resource_rows, "ayah")
         insert_recitations(connection, surah_recitations, resource_rows, "surah")
+        audio_objects = insert_audio_objects(connection, ayah_recitations, "ayah", source_hashes)
+        audio_objects += insert_audio_objects(connection, surah_recitations, "surah", source_hashes)
         counts = {
             "surahs": connection.execute("SELECT COUNT(*) FROM surahs").fetchone()[0],
             "ayahs": connection.execute("SELECT COUNT(*) FROM ayahs").fetchone()[0],
             "recitations": connection.execute("SELECT COUNT(*) FROM recitations").fetchone()[0],
+            "audio_objects": audio_objects,
         }
         missing = connection.execute(
             """SELECT COUNT(*) FROM ayahs
                WHERE arabic = '' OR translation = '' OR transliteration = ''"""
         ).fetchone()[0]
-        if counts["surahs"] != 114 or counts["ayahs"] != 6236 or missing:
+        if counts["surahs"] != 114 or counts["ayahs"] != 6236 or counts["audio_objects"] < 6236 or missing:
             raise ValueError(f"QUL snapshot failed completeness checks: {counts}, missing={missing}")
         capabilities = {
             row[0] for row in connection.execute("SELECT DISTINCT capability FROM recitations")
@@ -256,7 +300,9 @@ def main() -> None:
     manifest = {
         "schema_version": 1,
         "qul_commit": QUL_COMMIT,
+        "snapshot_at": "2026-08-11T13:58:33Z",
         "qul_repository": "https://github.com/TarteelAI/quranic-universal-library",
+        "qul_mirror": "https://github.com/oashaikh/quranic-universal-library",
         "database": {
             "filename": args.output.name,
             "sha256": sha256(args.output.read_bytes()),
@@ -295,6 +341,7 @@ def main() -> None:
             "audio.qurancdn.com",
             "audio-cdn.tarteel.ai",
             "download.quranicaudio.com",
+            "mirrors.quranicaudio.com",
             "everyayah.com",
             "versebyversequran.com",
         ],

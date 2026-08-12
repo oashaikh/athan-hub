@@ -19,7 +19,7 @@ async def lifespan(_: FastAPI):
     yield
 
 
-app = FastAPI(title="Athan Hub", version="1.0.0", openapi_url="/api/openapi.json", lifespan=lifespan)
+app = FastAPI(title="Athan Hub", version="2.0.0", openapi_url="/api/openapi.json", lifespan=lifespan)
 configure_logging()
 app.include_router(router)
 app.include_router(quran_router)
