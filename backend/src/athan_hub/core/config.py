@@ -7,6 +7,9 @@ from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
+PROJECT_ROOT = Path(__file__).resolve().parents[4]
+
+
 class AppSettings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="ATHAN_", case_sensitive=False)
 
@@ -15,6 +18,9 @@ class AppSettings(BaseSettings):
     upload_dir: Path = Path(os.environ.get("ATHAN_UPLOAD_DIR", "/var/lib/athan-hub/uploads"))
     audio_dir: Path = Path(os.environ.get("ATHAN_AUDIO_DIR", "/var/lib/athan-hub/audio"))
     background_dir: Path = Path(os.environ.get("ATHAN_BACKGROUND_DIR", "/var/lib/athan-hub/backgrounds"))
+    quran_cache_dir: Path = Path(os.environ.get("ATHAN_QURAN_CACHE_DIR", "/var/lib/athan-hub/quran-cache"))
+    quran_resource_db: Path = Path(os.environ.get("ATHAN_QURAN_RESOURCE_DB", str(PROJECT_ROOT / "resources/quran/quran.sqlite")))
+    quran_manifest_path: Path = Path(os.environ.get("ATHAN_QURAN_MANIFEST_PATH", str(PROJECT_ROOT / "resources/quran/manifest.json")))
     db_path: Path = Path(os.environ.get("ATHAN_DB_PATH", "/var/lib/athan-hub/athan.db"))
     timezone: str = os.environ.get("ATHAN_TIMEZONE", "Europe/London")
     api_host: str = os.environ.get("ATHAN_API_HOST", "127.0.0.1")
@@ -28,7 +34,7 @@ class AppSettings(BaseSettings):
     background_upload_limit: int = int(os.environ.get("ATHAN_BACKGROUND_UPLOAD_LIMIT", str(20 * 1024 * 1024)))
 
     def ensure_directories(self) -> None:
-        for path in [self.data_dir, self.log_dir, self.upload_dir, self.audio_dir, self.background_dir, self.db_path.parent]:
+        for path in [self.data_dir, self.log_dir, self.upload_dir, self.audio_dir, self.background_dir, self.quran_cache_dir, self.db_path.parent]:
             path.mkdir(parents=True, exist_ok=True)
 
 

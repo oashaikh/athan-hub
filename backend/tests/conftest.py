@@ -11,6 +11,7 @@ os.environ.update({
     "ATHAN_UPLOAD_DIR": str(TEST_ROOT / "uploads"),
     "ATHAN_AUDIO_DIR": str(TEST_ROOT / "audio"),
     "ATHAN_BACKGROUND_DIR": str(TEST_ROOT / "backgrounds"),
+    "ATHAN_QURAN_CACHE_DIR": str(TEST_ROOT / "quran-cache"),
     "ATHAN_DB_PATH": str(TEST_ROOT / "data" / "athan.db"),
     "ATHAN_TIMEZONE": "Europe/London",
     "ATHAN_PIN": "",
