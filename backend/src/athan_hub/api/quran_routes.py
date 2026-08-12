@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from .schemas import PracticeStateUpdate, ProgressUpdate, SessionCreate, SessionUpdate
@@ -27,6 +28,26 @@ def verses(surah_id: int):
 @router.get("/recitations")
 def recitations():
     return quran_service.resources().list_recitations()
+
+
+@router.get("/audio/{recitation_id}")
+def quran_audio(
+    recitation_id: int,
+    surah_id: int,
+    verse_key: str | None = None,
+    db: Session = Depends(get_db),
+):
+    from ..services import quran_cache_service
+
+    try:
+        path = quran_cache_service.resolve_audio(db, recitation_id, verse_key, surah_id)
+    except quran_cache_service.CacheQuotaError as exc:
+        raise HTTPException(507, str(exc)) from exc
+    except quran_cache_service.CacheSourceError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    except (OSError, TimeoutError) as exc:
+        raise HTTPException(503, "Quran audio is temporarily unavailable") from exc
+    return FileResponse(path, media_type="audio/mpeg", filename=path.name)
 
 
 @router.get("/profiles")
