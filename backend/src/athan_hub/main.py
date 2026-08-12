@@ -30,9 +30,7 @@ async def pin_protect_middleware(request: Request, call_next):
     if request.method == "OPTIONS":
         return await call_next(request)
     host = request.headers.get("x-forwarded-host") or request.headers.get("host", "")
-    if pin_auth.is_protected_host(host, settings):
-        if request.url.path in {"/api/pin/status", "/api/pin/verify"}:
-            return await call_next(request)
+    if pin_auth.is_protected_host(host, settings) and pin_auth.requires_admin(request.method, request.url.path):
         if not pin_auth.is_pin_valid(request, settings):
             return JSONResponse({"detail": "PIN_REQUIRED"}, status_code=401)
     response = await call_next(request)
