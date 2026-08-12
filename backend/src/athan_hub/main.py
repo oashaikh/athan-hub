@@ -5,6 +5,8 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from .api.routes import router
+from .api.quran_routes import router as quran_router
+from .api.admin_routes import router as admin_router
 from .core import pin_auth
 from .core.config import get_settings
 from .core.logging import configure_logging
@@ -20,6 +22,8 @@ async def lifespan(_: FastAPI):
 app = FastAPI(title="Athan Hub", version="1.0.0", openapi_url="/api/openapi.json", lifespan=lifespan)
 configure_logging()
 app.include_router(router)
+app.include_router(quran_router)
+app.include_router(admin_router)
 
 settings = get_settings()
 app.mount("/backgrounds", StaticFiles(directory=settings.background_dir, check_dir=False), name="backgrounds")

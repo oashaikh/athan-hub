@@ -52,3 +52,19 @@ def test_route_classifier_keeps_quran_reads_and_practice_writes_public():
     assert not pin_auth.requires_admin("PUT", "/api/quran/profiles/1/state")
     assert pin_auth.requires_admin("POST", "/api/admin/profiles")
     assert pin_auth.requires_admin("POST", "/api/audio/upload")
+
+
+def test_only_admin_can_create_and_manage_profiles(protected_client):
+    payload = {"name": "Maryam", "gender": "girl"}
+    denied = protected_client.post("/api/admin/profiles", json=payload)
+    assert denied.status_code == 401
+
+    authenticate(protected_client)
+    created = protected_client.post("/api/admin/profiles", json=payload)
+    assert created.status_code == 201
+    profile = created.json()
+    assert profile["theme"] == "garden_light"
+
+    assert protected_client.post(f"/api/admin/profiles/{profile['id']}/archive").status_code == 200
+    assert all(row["id"] != profile["id"] for row in protected_client.get("/api/quran/profiles").json())
+    assert protected_client.post(f"/api/admin/profiles/{profile['id']}/restore").status_code == 200
