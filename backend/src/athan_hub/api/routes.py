@@ -56,6 +56,15 @@ def health() -> dict[str, str]:
     return {"status": "ok", "time": now_local().isoformat()}
 
 
+@router.get("/public/config")
+def public_config(db: Session = Depends(get_db)):
+    values = settings_service.all_settings(db)
+    return {
+        "timezone": values.get("timezone", settings.timezone),
+        "dashboard_background": values.get("dashboard_background", ""),
+    }
+
+
 @router.get("/settings")
 def get_settings_api(db: Session = Depends(get_db)):
     return settings_service.all_settings(db)
