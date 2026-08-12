@@ -4,7 +4,6 @@ import re
 import unicodedata
 
 from fastapi import HTTPException
-from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from ..api.schemas import AdminProfileCreate, AdminProfileUpdate, PracticeStateUpdate, ProgressUpdate
@@ -184,12 +183,30 @@ def update_progress(db: Session, profile_id: int, verse_key: str, payload: Progr
     if row is None:
         row = models.QuranProgress(profile_id=profile_id, verse_key=verse_key, first_practised_at=now)
         db.add(row)
+    previous_state = row.state
     row.state = payload.state
     row.completed_repetitions = payload.completed_repetitions
     row.last_practised_at = now
     if payload.state == "memorised" and not row.first_memorised_at:
         row.first_memorised_at = now
     db.commit()
+    from . import reward_service
+
+    surah_count = next(item["ayah_count"] for item in resources().list_surahs() if item["id"] == surah_id)
+    memorised_count = db.query(models.QuranProgress).filter(
+        models.QuranProgress.profile_id == profile_id,
+        models.QuranProgress.verse_key.like(f"{surah_id}:%"),
+        models.QuranProgress.state == "memorised",
+    ).count()
+    reward_service.reward_progress(
+        db,
+        profile_id,
+        verse_key,
+        previous_state,
+        payload.state,
+        payload.completed_repetitions,
+        memorised_count == surah_count,
+    )
     return {
         "verse_key": row.verse_key,
         "state": row.state,

@@ -1,10 +1,11 @@
 from fastapi import APIRouter, Depends, Response, status
 from sqlalchemy.orm import Session
 
-from .schemas import AdminProfileCreate, AdminProfileUpdate
+from .schemas import AdminProfileCreate, AdminProfileUpdate, LeaderboardSettingsUpdate
 from ..db import models
 from ..db.session import get_db
 from ..services import quran_service
+from ..services import settings_service
 
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
@@ -40,3 +41,30 @@ def restore_profile(profile_id: int, db: Session = Depends(get_db)):
 def delete_profile(profile_id: int, db: Session = Depends(get_db)):
     quran_service.delete_profile(db, profile_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.get("/quran/rewards")
+def reward_settings(db: Session = Depends(get_db)):
+    values = settings_service.all_settings(db)
+    return {
+        "enabled": values["leaderboard_enabled"] == "1",
+        "repetitions": values["leaderboard_repetitions"] == "1",
+        "daily_practice": values["leaderboard_daily_practice"] == "1",
+        "memorised": values["leaderboard_memorised"] == "1",
+        "surahs": values["leaderboard_surahs"] == "1",
+    }
+
+
+@router.put("/quran/rewards")
+def update_reward_settings(payload: LeaderboardSettingsUpdate, db: Session = Depends(get_db)):
+    settings_service.update_settings(
+        db,
+        {
+            "leaderboard_enabled": payload.enabled,
+            "leaderboard_repetitions": payload.repetitions,
+            "leaderboard_daily_practice": payload.daily_practice,
+            "leaderboard_memorised": payload.memorised,
+            "leaderboard_surahs": payload.surahs,
+        },
+    )
+    return reward_settings(db)
