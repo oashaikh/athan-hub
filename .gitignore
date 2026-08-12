@@ -27,3 +27,4 @@ frontend/node_modules/
 uploads/
 backups/
 .superpowers/
+.worktrees/
