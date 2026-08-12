@@ -7,14 +7,14 @@ from sqlalchemy import delete
 from athan_hub.db import models
 from athan_hub.db.migrations import init_db
 from athan_hub.db.session import SessionLocal
-from athan_hub.services.quran_cache_service import CacheSourceError, QuranCacheService
+from athan_hub.services.quran_cache_service import CacheQuotaError, CacheSourceError, QuranCacheService, mark_streaming, release_streaming, segment_manifest
 
 
 class FakeResponse:
-    def __init__(self, url: str, payload: bytes):
+    def __init__(self, url: str, payload: bytes, content_type: str = "audio/mpeg"):
         self._url = url
         self._stream = io.BytesIO(payload)
-        self.headers = {"Content-Type": "audio/mpeg", "Content-Length": str(len(payload))}
+        self.headers = {"Content-Type": content_type, "Content-Length": str(len(payload))}
 
     def geturl(self):
         return self._url
@@ -84,6 +84,15 @@ def test_invalid_audio_cannot_replace_cache(tmp_path):
     assert not list(tmp_path.glob("*.mp3"))
 
 
+def test_qul_binary_octet_stream_is_accepted_when_signature_is_audio(tmp_path):
+    init_db()
+    payload = b"ID3" + b"\x00" * 40
+    opener = FakeOpener(FakeResponse("https://allowed.test/audio.mp3", payload, "binary/octet-stream"))
+    service = QuranCacheService(tmp_path, {"allowed.test"}, 1024, opener=opener)
+    with SessionLocal() as db:
+        assert service.cache_url(db, 999_995, "1:1", "https://allowed.test/audio.mp3").read_bytes() == payload
+
+
 def test_lru_eviction_preserves_pinned_objects(tmp_path):
     init_db()
     with SessionLocal() as db:
@@ -125,3 +134,66 @@ def test_lru_eviction_preserves_pinned_objects(tmp_path):
         assert service.evict_to_limit(db) == old_size
         assert pinned.exists()
         assert not old.exists()
+
+
+def test_segment_manifest_uses_internal_source_id(monkeypatch):
+    payload = b'{"audio":{"url":"https://allowed.test/001.mp3"},"segments":{"1:1":{"time_from":0,"time_to":4200}}}'
+    seen = {}
+
+    def fake_urlopen(request, timeout=0):
+        seen["url"] = request.full_url
+        return FakeResponse(request.full_url, payload)
+
+    monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
+    result = segment_manifest({"source_kind": "surah", "source_id": 10, "capability": "segmented_surah"}, 1, 1, 1)
+    assert "/surah_segments/10?" in seen["url"]
+    assert result["segments"]["1:1"]["time_to"] == 4200
+
+
+def test_segment_manifest_is_available_offline_after_first_fetch(monkeypatch, tmp_path):
+    payload = b'{"audio":{"url":"https://allowed.test/001.mp3"},"segments":{"1:1":{"time_from":0,"time_to":4200}}}'
+    calls = []
+
+    def fake_urlopen(request, timeout=0):
+        calls.append(request.full_url)
+        return FakeResponse(request.full_url, payload)
+
+    recitation = {"id": 77, "source_kind": "surah", "source_id": 10, "capability": "segmented_surah"}
+    monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
+    first = segment_manifest(recitation, 1, 1, 7, tmp_path)
+    monkeypatch.setattr("urllib.request.urlopen", lambda *args, **kwargs: (_ for _ in ()).throw(OSError("offline")))
+    second = segment_manifest(recitation, 1, 1, 7, tmp_path)
+
+    assert first == second
+    assert len(calls) == 1
+
+
+def test_eviction_preserves_currently_streaming_object(tmp_path):
+    init_db()
+    with SessionLocal() as db:
+        db.execute(delete(models.QuranAudioCache))
+        path = tmp_path / "playing.mp3"
+        path.write_bytes(b"ID3" + b"p" * 40)
+        db.add(models.QuranAudioCache(recitation_id=999_994, content_key="1:1", local_path=str(path), source_url="https://allowed.test/playing.mp3", byte_count=path.stat().st_size, sha256="z", pinned=0, created_at="2026-01-01T00:00:00+00:00", last_accessed_at="2026-01-01T00:00:00+00:00"))
+        db.commit()
+        service = QuranCacheService(tmp_path, {"allowed.test"}, cache_limit_bytes=10)
+        mark_streaming(path)
+        try:
+            with pytest.raises(CacheQuotaError):
+                service.evict_to_limit(db)
+            assert path.exists()
+        finally:
+            release_streaming(path)
+
+
+def test_cache_summary_and_pin_control(tmp_path):
+    init_db()
+    with SessionLocal() as db:
+        db.execute(delete(models.QuranAudioCache))
+        db.add(models.QuranAudioCache(recitation_id=123, content_key="1:1", local_path=str(tmp_path / "one.mp3"), source_url="https://allowed.test/one.mp3", byte_count=99, sha256="x", pinned=0, created_at="2026-01-01T00:00:00+00:00", last_accessed_at="2026-01-01T00:00:00+00:00"))
+        db.commit()
+        service = QuranCacheService(tmp_path, {"allowed.test"}, 1024)
+        summary = service.cache_summary(db)
+        assert summary["items"][0]["pinned"] is False
+        service.set_pinned(db, summary["items"][0]["id"], True)
+        assert service.cache_summary(db)["items"][0]["pinned"] is True

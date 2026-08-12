@@ -23,6 +23,7 @@ __pycache__/
 htmlcov/
 backend/venv/
 backend/.venv/
+.venv/
 frontend/node_modules/
 uploads/
 backups/

@@ -2,16 +2,15 @@
   <div class="app-root" :class="{ 'is-locked': showPinGate }">
     <a class="skip-link" href="#main-content">Skip to main content</a>
     <div class="app-ambient" aria-hidden="true"></div>
-    <FloatingMenu />
-
     <main
       v-if="!showPinGate"
       id="main-content"
       ref="mainContent"
       class="app-shell"
-      :class="{ 'is-dashboard': isDashboard }"
+      :class="{ 'is-dashboard': isDashboard, 'is-workspace': isWorkspace }"
       tabindex="-1"
     >
+      <div id="child-application" :data-profile-theme="selectedProfile?.theme" :class="{ 'is-child-route': !isAdmin }">
       <router-view v-slot="{ Component, route: activeRoute }">
         <Transition mode="out-in" :css="false" @enter="enterRoute" @leave="leaveRoute" @after-enter="focusMain">
           <component
@@ -21,9 +20,11 @@
           />
         </Transition>
       </router-view>
+      </div>
     </main>
 
     <PinGate v-if="showPinGate" @verified="onPinVerified" />
+    <AthanLock v-if="!isAdmin" />
     <Toasts :items="toasts" @dismiss="removeToast" />
   </div>
 </template>
@@ -32,19 +33,25 @@
 import { computed, onBeforeUnmount, onMounted, provide, reactive, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import api from './api'
-import FloatingMenu from './components/FloatingMenu.vue'
+import AthanLock from './components/AthanLock.vue'
 import PinGate from './components/PinGate.vue'
 import Toasts, { ToastItem } from './components/Toasts.vue'
 import { enterRoute, leaveRoute } from './motion'
+import { usePlaybackStore } from './stores/playback'
+import { useProfileStore } from './stores/profile'
 
 const route = useRoute()
 const mainContent = ref<HTMLElement | null>(null)
 const toasts = reactive<ToastItem[]>([])
 let idCounter = 1
 const isDashboard = computed(() => route.name === 'dashboard')
+const isAdmin = computed(() => route.matched.some(record => record.meta.admin))
+const isWorkspace = computed(() => isAdmin.value || route.name === 'quran')
+const { selected: selectedProfile } = useProfileStore()
+const playback = usePlaybackStore()
 const pinRequired = ref(false)
 const pinVerified = ref(true)
-const showPinGate = computed(() => pinRequired.value && !pinVerified.value)
+const showPinGate = computed(() => isAdmin.value && pinRequired.value && !pinVerified.value)
 
 const pushToast = (message: string, type: ToastItem['type'] = 'success') => {
   const id = idCounter++
@@ -86,10 +93,12 @@ const focusMain = () => {
 
 onMounted(() => {
   loadPinStatus()
+  playback.start()
   window.addEventListener('athan-pin-required', onPinRequired as EventListener)
 })
 
 onBeforeUnmount(() => {
+  playback.stop()
   window.removeEventListener('athan-pin-required', onPinRequired as EventListener)
 })
 </script>
@@ -154,6 +163,14 @@ onBeforeUnmount(() => {
   max-width: none;
   padding: 0;
 }
+
+.app-shell.is-workspace {
+  width: 100%;
+  max-width: none;
+  padding: 0;
+}
+
+#child-application { min-height: 100dvh; }
 
 @media (max-width: 768px) {
   .app-shell {

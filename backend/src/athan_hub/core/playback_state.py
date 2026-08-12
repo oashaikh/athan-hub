@@ -49,6 +49,7 @@ class PlaybackStateStore:
         now: dt.datetime | None = None,
         grace_seconds: int = 120,
     ) -> dict | None:
+        del grace_seconds  # Kept for API compatibility; playback ends at the measured media duration.
         if not self.path.is_file():
             return None
         try:
@@ -58,7 +59,7 @@ class PlaybackStateStore:
             self.clear_active()
             return None
         current = now or dt.datetime.now(expected_finish.tzinfo or dt.timezone.utc)
-        if current > expected_finish + dt.timedelta(seconds=grace_seconds):
+        if current >= expected_finish:
             self.clear_active()
             return None
         payload["active"] = True

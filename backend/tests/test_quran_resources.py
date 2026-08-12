@@ -1,6 +1,7 @@
 import hashlib
 import json
 import sqlite3
+from pathlib import Path
 
 import pytest
 
@@ -41,6 +42,14 @@ def resource_files(tmp_path):
             recommended TEXT,
             detail_url TEXT NOT NULL
         );
+        CREATE TABLE audio_objects (
+            recitation_id INTEGER NOT NULL,
+            content_key TEXT NOT NULL,
+            audio_url TEXT NOT NULL,
+            duration REAL,
+            byte_count INTEGER,
+            PRIMARY KEY (recitation_id, content_key)
+        );
         """
     )
     for surah_id in range(1, 115):
@@ -71,6 +80,11 @@ def resource_files(tmp_path):
                 f"https://qul.tarteel.ai/api/v1/audio/recitations/{index}",
             ),
         )
+    connection.commit()
+    connection.execute(
+        "INSERT INTO audio_objects VALUES (?, ?, ?, ?, ?)",
+        (1, "1:1", "https://audio.qurancdn.com/test.mp3", 4.0, 1000),
+    )
     connection.commit()
     connection.close()
 
@@ -110,3 +124,24 @@ def test_manifest_hash_must_match_database(resource_files):
 
     with pytest.raises(ValueError, match="checksum"):
         QuranResources(database, manifest)
+
+
+def test_audio_source_url_is_pinned_in_snapshot(resource_files):
+    database, manifest = resource_files
+    resources = QuranResources(database, manifest)
+    row = resources.audio_object(1, "1:1")
+    assert row["audio_url"] == "https://audio.qurancdn.com/test.mp3"
+    assert resources.audio_object(1, "2:1") is None
+
+
+def test_packaged_snapshot_is_complete_and_verified():
+    repository = Path(__file__).resolve().parents[2]
+    resources = QuranResources(
+        repository / "resources/quran/quran.sqlite",
+        repository / "resources/quran/manifest.json",
+    )
+    surahs = resources.list_surahs()
+    assert len(surahs) == 114
+    assert sum(row["ayah_count"] for row in surahs) == 6236
+    assert len(resources.list_recitations()) == 139
+    assert resources.audio_object(100016, "1:1")["audio_url"].startswith("https://")

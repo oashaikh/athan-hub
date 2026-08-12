@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 import unicodedata
+from functools import lru_cache
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
@@ -16,6 +17,7 @@ from ..db import models
 THEME_BY_GENDER = {"boy": "night_explorer", "girl": "garden_light", None: "classic_mushaf"}
 
 
+@lru_cache(maxsize=1)
 def resources() -> QuranResources:
     settings = get_settings()
     return QuranResources(settings.quran_resource_db, settings.quran_manifest_path)
@@ -171,7 +173,14 @@ def update_practice_state(db: Session, profile_id: int, payload: PracticeStateUp
     return profile_summary(db, profile)
 
 
-def update_progress(db: Session, profile_id: int, verse_key: str, payload: ProgressUpdate) -> dict:
+def update_progress(
+    db: Session,
+    profile_id: int,
+    verse_key: str,
+    payload: ProgressUpdate,
+    *,
+    allow_repetition_decrease: bool = False,
+) -> dict:
     _profile(db, profile_id)
     try:
         surah_id, ayah_number = (int(value) for value in verse_key.split(":", 1))
@@ -185,7 +194,11 @@ def update_progress(db: Session, profile_id: int, verse_key: str, payload: Progr
         db.add(row)
     previous_state = row.state
     row.state = payload.state
-    row.completed_repetitions = payload.completed_repetitions
+    row.completed_repetitions = (
+        payload.completed_repetitions
+        if allow_repetition_decrease
+        else max(row.completed_repetitions or 0, payload.completed_repetitions)
+    )
     row.last_practised_at = now
     if payload.state == "memorised" and not row.first_memorised_at:
         row.first_memorised_at = now
@@ -204,7 +217,7 @@ def update_progress(db: Session, profile_id: int, verse_key: str, payload: Progr
         verse_key,
         previous_state,
         payload.state,
-        payload.completed_repetitions,
+        row.completed_repetitions,
         memorised_count == surah_count,
     )
     return {

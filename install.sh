@@ -123,6 +123,8 @@ fi
 [[ -f "$SOURCE_ROOT/backend/pyproject.toml" ]] || fail "Source tree is missing backend/pyproject.toml"
 [[ -f "$SOURCE_ROOT/frontend/dist/index.html" ]] || fail "Prebuilt frontend is missing; run npm ci && npm run build before installing a local checkout"
 [[ -f "$SOURCE_ROOT/backend/requirements.lock" ]] || fail "Backend dependency lock file is missing"
+[[ -f "$SOURCE_ROOT/resources/quran/quran.sqlite" ]] || fail "Packaged Quran resource database is missing"
+[[ -f "$SOURCE_ROOT/resources/quran/manifest.json" ]] || fail "Quran resource manifest is missing"
 
 if [[ -n "$NEW_HOSTNAME" ]]; then
   log "Setting hostname to $NEW_HOSTNAME"
@@ -147,7 +149,7 @@ for supplemental_group in audio bluetooth; do
   usermod -a -G "$supplemental_group" "$SERVICE_USER"
 done
 install -d -o "$SERVICE_USER" -g "$SERVICE_USER" -m 0750 \
-  "$DATA_ROOT" "$DATA_ROOT/uploads" "$DATA_ROOT/audio" "$DATA_ROOT/backgrounds" "$LOG_ROOT"
+  "$DATA_ROOT" "$DATA_ROOT/uploads" "$DATA_ROOT/audio" "$DATA_ROOT/backgrounds" "$DATA_ROOT/quran-cache" "$LOG_ROOT"
 install -d -o root -g "$SERVICE_USER" -m 0750 "$CONFIG_ROOT"
 
 if [[ -z "$TIMEZONE" ]]; then
@@ -185,6 +187,10 @@ umask 077
   printf 'ATHAN_UPLOAD_DIR=%s\n' "$DATA_ROOT/uploads"
   printf 'ATHAN_AUDIO_DIR=%s\n' "$DATA_ROOT/audio"
   printf 'ATHAN_BACKGROUND_DIR=%s\n' "$DATA_ROOT/backgrounds"
+  printf 'ATHAN_QURAN_CACHE_DIR=%s\n' "$DATA_ROOT/quran-cache"
+  printf 'ATHAN_QURAN_RESOURCE_DB=%s\n' "$INSTALL_ROOT/resources/quran/quran.sqlite"
+  printf 'ATHAN_QURAN_MANIFEST_PATH=%s\n' "$INSTALL_ROOT/resources/quran/manifest.json"
+  printf 'ATHAN_PLAYBACK_STATE_PATH=/run/athan-hub/athan-active.json\n'
   printf 'ATHAN_DB_PATH=%s\n' "$DATA_ROOT/athan.db"
   printf 'ATHAN_TIMEZONE=%s\n' "$TIMEZONE"
   printf 'ATHAN_PIN=%s\n' "$dashboard_pin"
@@ -212,6 +218,14 @@ fi
 runuser -u "$SERVICE_USER" -- "$INSTALL_ROOT/backend/venv/bin/pip" install --disable-pip-version-check --upgrade pip setuptools wheel
 runuser -u "$SERVICE_USER" -- "$INSTALL_ROOT/backend/venv/bin/pip" install --disable-pip-version-check -r "$INSTALL_ROOT/backend/requirements.lock"
 runuser -u "$SERVICE_USER" -- "$INSTALL_ROOT/backend/venv/bin/pip" install --disable-pip-version-check --no-deps "$INSTALL_ROOT/backend"
+runuser -u "$SERVICE_USER" -- "$INSTALL_ROOT/backend/venv/bin/python" -c \
+  "from pathlib import Path; from athan_hub.core.quran_resources import QuranResources; QuranResources(Path('$INSTALL_ROOT/resources/quran/quran.sqlite'), Path('$INSTALL_ROOT/resources/quran/manifest.json'))"
+
+# Packaged Quran resources are immutable application data. The service can read
+# them, but only root can replace them during a verified upgrade.
+chown -R root:"$SERVICE_USER" "$INSTALL_ROOT/resources/quran"
+find "$INSTALL_ROOT/resources/quran" -type d -exec chmod 0550 {} +
+find "$INSTALL_ROOT/resources/quran" -type f -exec chmod 0440 {} +
 
 log "Starting the headless audio session"
 loginctl enable-linger "$SERVICE_USER" || true
@@ -259,7 +273,7 @@ if ! curl -fsS http://127.0.0.1:9000/api/health >/dev/null; then
   fail "Athan Hub did not become healthy"
 fi
 
-printf 'version=1.0.0\nrepository=%s\nbranch=%s\nservice_user=%s\ninstalled_at=%s\n' \
+printf 'version=2.0.0\nrepository=%s\nbranch=%s\nservice_user=%s\ninstalled_at=%s\n' \
   "$REPOSITORY" "$BRANCH" "$SERVICE_USER" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$CONFIG_ROOT/installed"
 chmod 0644 "$CONFIG_ROOT/installed"
 
@@ -273,5 +287,5 @@ elif [[ -z "$dashboard_pin" ]]; then
 else
   printf 'Dashboard PIN protection: enabled\n'
 fi
-printf 'Next: open Settings to upload a timetable and MP3, then scan and pair a Bluetooth speaker.\n'
+printf 'Next: open Admin to upload a timetable and MP3, pair a Bluetooth speaker, and create child profiles.\n'
 printf 'Diagnostics: sudo athan-hub-doctor\n'

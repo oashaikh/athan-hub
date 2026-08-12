@@ -13,6 +13,7 @@ EnvironmentFile=/etc/athan-hub/athan-hub.env
 Environment=HOME=/var/lib/athan-hub
 RuntimeDirectory=athan-hub
 RuntimeDirectoryMode=0755
+RuntimeDirectoryPreserve=restart
 Environment=PATH=/opt/athan-hub/backend/venv/bin:/usr/local/bin:/usr/bin:/bin
 Environment=XDG_RUNTIME_DIR=/run/user/@ATHAN_UID@
 Environment=PULSE_SERVER=unix:/run/user/@ATHAN_UID@/pulse/native

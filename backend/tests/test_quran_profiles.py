@@ -122,5 +122,10 @@ def test_public_resources_and_progress_round_trip():
         )
         assert response.status_code == 200
         assert response.json()["completed_repetitions"] == 2
+        stale = client.put(
+            f"/api/quran/profiles/{profile['id']}/progress/1:1",
+            json={"state": "learning", "completed_repetitions": 1},
+        )
+        assert stale.json()["completed_repetitions"] == 2
         detail = client.get(f"/api/quran/profiles/{profile['id']}").json()
         assert detail["progress"][0]["verse_key"] == "1:1"

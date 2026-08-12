@@ -36,6 +36,7 @@ Runtime configuration is stored in `/etc/athan-hub/athan-hub.env`. Persistent us
 | `/var/lib/athan-hub/audio` | Uploaded MP3 files |
 | `/var/lib/athan-hub/uploads` | Most recently uploaded timetable |
 | `/var/lib/athan-hub/backgrounds` | Dashboard background images |
+| `/var/lib/athan-hub/quran-cache` | Downloaded Quran recitation audio (excluded from backups) |
 | `/var/log/athan-hub` | Optional application logs |
 | `/etc/athan-hub/athan-hub.env` | Root-managed configuration and PIN secret |
 
@@ -52,3 +53,11 @@ sudo env ATHAN_REPOSITORY=owner/fork ./install.sh --branch release-branch
 ```
 
 The update command respects `ATHAN_REPOSITORY` and `ATHAN_BRANCH` environment variables.
+
+## Quran resources and offline use
+
+The installer verifies the packaged Quran SQLite database against its checked-in SHA-256 manifest before starting the services. Text, translation, transliteration, profiles, and progress do not require internet access at runtime.
+
+Recitation audio downloads on first play from the HTTPS source recorded by QUL and is then served from `/var/lib/athan-hub/quran-cache`. The default cache limit is 5 GB. The admin centre shows cache use and source notices.
+
+During a scheduled Athan, the scheduler publishes the measured playback window under `/run/athan-hub`. Public child pages immediately stop Quran audio, become non-interactive for that window, and never resume audio automatically.

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "athan-hub"
-version = "1.0.0"
+version = "2.0.0"
 description = "Headless prayer timetable and Bluetooth Athan player for Ubuntu and Debian"
 requires-python = ">=3.10"
 dependencies = [
