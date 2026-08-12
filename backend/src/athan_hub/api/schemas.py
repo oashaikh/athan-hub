@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -29,3 +29,56 @@ class PinRequest(BaseModel):
 
 class BluetoothPairRequest(BaseModel):
     mac: str = Field(pattern=r"^(?:[0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$")
+
+
+Theme = Literal["night_explorer", "garden_light", "classic_mushaf"]
+LearningState = Literal["learning", "needs_practice", "memorised"]
+
+
+class PracticeStateUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    recitation_id: int | None = Field(default=None, ge=1)
+    surah_id: int = Field(ge=1, le=114)
+    start_ayah: int = Field(ge=1)
+    end_ayah: int = Field(ge=1)
+    repetitions: Literal[1, 3, 5, 10] = 3
+    playback_speed: float = Field(default=1.0, ge=0.75, le=1.25)
+    show_arabic: bool = True
+    show_translation: bool = True
+    show_transliteration: bool = False
+    recall_mode: bool = False
+
+
+class ProgressUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    state: LearningState
+    completed_repetitions: int = Field(default=0, ge=0, le=10000)
+
+
+class SessionCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    surah_id: int = Field(ge=1, le=114)
+    start_ayah: int = Field(ge=1)
+    end_ayah: int = Field(ge=1)
+    recitation_id: int | None = Field(default=None, ge=1)
+
+
+class SessionUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    repetitions: int = Field(default=0, ge=0, le=10000)
+    practice_seconds: int = Field(default=0, ge=0, le=86400)
+    completed: bool = False
+
+
+class AdminProfileCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    name: str = Field(min_length=1, max_length=80)
+    gender: Literal["boy", "girl"] | None = None
+    theme: Theme | None = None
+
+
+class AdminProfileUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    name: str | None = Field(default=None, min_length=1, max_length=80)
+    gender: Literal["boy", "girl"] | None = None
+    theme: Theme | None = None

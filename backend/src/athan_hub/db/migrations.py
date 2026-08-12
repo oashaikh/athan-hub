@@ -11,11 +11,21 @@ DEFAULT_SETTINGS = {
     "echo_mac": "",
     "sink_volume_percent": "100",
     "dashboard_background": "bg.png",
+    "quran_cache_limit_bytes": str(5 * 1024 * 1024 * 1024),
+    "leaderboard_enabled": "0",
+    "leaderboard_repetitions": "1",
+    "leaderboard_daily_practice": "1",
+    "leaderboard_memorised": "1",
+    "leaderboard_surahs": "1",
 }
 
 
 def init_db() -> None:
     Base.metadata.create_all(bind=engine)
+    with engine.begin() as connection:
+        columns = {row[1] for row in connection.exec_driver_sql("PRAGMA table_info(audio_profiles)")}
+        if "duration_seconds" not in columns:
+            connection.exec_driver_sql("ALTER TABLE audio_profiles ADD COLUMN duration_seconds FLOAT")
     app_settings = get_settings()
     defaults = {"timezone": app_settings.timezone, **DEFAULT_SETTINGS}
     with SessionLocal() as db:
