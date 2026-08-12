@@ -68,3 +68,23 @@ def update_reward_settings(payload: LeaderboardSettingsUpdate, db: Session = Dep
         },
     )
     return reward_settings(db)
+
+
+@router.get("/quran/cache")
+def quran_cache(db: Session = Depends(get_db)):
+    from ..services.quran_cache_service import default_cache_service
+
+    return default_cache_service(db).cache_summary(db)
+
+
+@router.delete("/quran/cache/{cache_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_quran_cache(cache_id: int, db: Session = Depends(get_db)):
+    from pathlib import Path
+
+    row = db.get(models.QuranAudioCache, cache_id)
+    if row is None:
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
+    Path(row.local_path).unlink(missing_ok=True)
+    db.delete(row)
+    db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
