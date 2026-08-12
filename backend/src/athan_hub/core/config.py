@@ -21,6 +21,7 @@ class AppSettings(BaseSettings):
     quran_cache_dir: Path = Path(os.environ.get("ATHAN_QURAN_CACHE_DIR", "/var/lib/athan-hub/quran-cache"))
     quran_resource_db: Path = Path(os.environ.get("ATHAN_QURAN_RESOURCE_DB", str(PROJECT_ROOT / "resources/quran/quran.sqlite")))
     quran_manifest_path: Path = Path(os.environ.get("ATHAN_QURAN_MANIFEST_PATH", str(PROJECT_ROOT / "resources/quran/manifest.json")))
+    playback_state_path: Path = Path(os.environ.get("ATHAN_PLAYBACK_STATE_PATH", "/run/athan-hub/athan-active.json"))
     db_path: Path = Path(os.environ.get("ATHAN_DB_PATH", "/var/lib/athan-hub/athan.db"))
     timezone: str = os.environ.get("ATHAN_TIMEZONE", "Europe/London")
     api_host: str = os.environ.get("ATHAN_API_HOST", "127.0.0.1")

@@ -12,6 +12,7 @@ from .schemas import BluetoothPairRequest, ManualUpdate, PinRequest, SettingsUpd
 from ..core import pin_auth
 from ..core.config import get_settings
 from ..core.time_utils import now_local
+from ..core import playback_state
 from ..db import models
 from ..db.session import get_db
 from ..services import (
@@ -123,6 +124,13 @@ def next_prayer(db: Session = Depends(get_db)):
     return {"next": {"date": date_str, "prayer": prayer, "time": when.strftime("%H:%M"), "at": when.isoformat(), "countdown": int((when - now).total_seconds())}}
 
 
+@router.get("/playback/status")
+def playback_status(db: Session = Depends(get_db)):
+    grace = bluetooth_service._get_int(db, "grace_seconds", 120)
+    active = playback_state.read_active(grace_seconds=grace)
+    return active or {"active": False, "remaining_seconds": 0}
+
+
 @router.get("/bluetooth/status")
 def bluetooth_status(db: Session = Depends(get_db)):
     return bluetooth_service.status(db)
@@ -201,7 +209,10 @@ async def audio_upload(name: str = Form("Athan"), file: UploadFile = File(...), 
     content = await _read_limited(file, settings.audio_upload_limit, "MP3 audio")
     if not _looks_like_mp3(content):
         raise HTTPException(400, "Uploaded file does not appear to be a valid MP3")
-    profile = audio_service.save_profile(db, name[:120], file.filename, content)
+    try:
+        profile = audio_service.save_profile(db, name[:120], file.filename, content)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
     return {"id": profile.id, "name": profile.name, "enabled": bool(profile.enabled)}
 
 
