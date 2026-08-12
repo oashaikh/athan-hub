@@ -4,6 +4,7 @@ from pathlib import Path
 
 from .logging import configure_logging
 from .playback import play_once
+from . import playback_state
 from .time_utils import now_local
 from ..db.migrations import init_db
 from ..db.session import SessionLocal
@@ -31,15 +32,23 @@ def tick() -> None:
             if not profile or not mac:
                 logger.warning("Prayer due but audio profile or Echo MAC is missing")
                 continue
+            if not profile.duration_seconds:
+                logger.error("Prayer due but audio profile has no measured duration")
+                audit_service.add_entry(db, "ERROR", f"Playback disabled for {prayer}", {"error": "Audio duration unavailable"})
+                continue
             try:
-                result = play_once(
-                    mac,
-                    Path(profile.file_path),
-                    pre_connect_seconds=bluetooth_service._get_int(db, "pre_connect_seconds", 10),
-                    connect_retry_seconds=bluetooth_service._get_int(db, "connect_retry_seconds", 20),
-                    disconnect_after_play=bluetooth_service._get_bool(db, "disconnect_after_play", False),
-                    sink_volume_percent=bluetooth_service._get_int(db, "sink_volume_percent", 140),
-                )
+                playback_state.write_active(prayer, profile.id, profile.duration_seconds, now_local())
+                try:
+                    result = play_once(
+                        mac,
+                        Path(profile.file_path),
+                        pre_connect_seconds=bluetooth_service._get_int(db, "pre_connect_seconds", 10),
+                        connect_retry_seconds=bluetooth_service._get_int(db, "connect_retry_seconds", 20),
+                        disconnect_after_play=bluetooth_service._get_bool(db, "disconnect_after_play", False),
+                        sink_volume_percent=bluetooth_service._get_int(db, "sink_volume_percent", 140),
+                    )
+                finally:
+                    playback_state.clear_active()
                 timetable_service.record_playback(db, date_str, prayer, hhmm)
                 audit_service.add_entry(db, "INFO", f"Played {prayer}", result)
             except Exception as exc:

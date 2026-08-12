@@ -1,6 +1,8 @@
 from . import models
 from .session import Base, SessionLocal, engine
 from ..core.config import get_settings
+from ..core.audio_metadata import mp3_duration
+from pathlib import Path
 
 
 DEFAULT_SETTINGS = {
@@ -32,6 +34,11 @@ def init_db() -> None:
         for key, value in defaults.items():
             if db.get(models.Setting, key) is None:
                 db.add(models.Setting(key=key, value=value))
+        for profile in db.query(models.AudioProfile).filter(models.AudioProfile.duration_seconds.is_(None)):
+            try:
+                profile.duration_seconds = mp3_duration(Path(profile.file_path))
+            except ValueError:
+                profile.enabled = 0
         db.commit()
     timezone_file = app_settings.data_dir / "timezone"
     if not timezone_file.exists():

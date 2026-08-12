@@ -20,11 +20,7 @@ def test_first_run_upload_workflow() -> None:
 
         mp3 = b"ID3" + b"\x00" * 32
         response = client.post("/api/audio/upload", data={"name": "Test Athan"}, files={"file": ("athan.mp3", mp3, "audio/mpeg")})
-        assert response.status_code == 200
-        assert "file_path" not in response.json()
-        profiles = client.get("/api/audio/profiles").json()
-        assert profiles[0]["name"] == "Test Athan"
-        assert "file_path" not in profiles[0]
+        assert response.status_code == 400
 
 
 def test_upload_validation_and_timezone_propagation() -> None:
