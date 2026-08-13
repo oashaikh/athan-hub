@@ -10,6 +10,7 @@
 - Reworked public and admin authorization so prayer and Quran child experiences remain public while system/profile administration requires the PIN.
 - Refined stars into meaningful milestones: daily practice, completed surahs, and 10/50/100-ayah memorisation achievements; individual ayahs and repetitions no longer award stars. A completed surah awards one star per ayah.
 - Added an accessible fullscreen control to the public header, including an exit state and graceful browser support detection.
+- Made earned surah stars reversible: changing a completed surah's ayah away from Memorised removes one star, and restoring it restores the star.
 
 ## 1.0.0
 

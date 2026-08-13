@@ -46,14 +46,26 @@ def _normalise_surah_reward_points(db: Session, profile_id: int | None = None) -
     if profile_id is not None:
         query = query.filter_by(profile_id=profile_id)
     changed = False
-    counts = _surah_ayah_counts()
+    ayah_counts = _surah_ayah_counts()
     for event in query:
         try:
             surah_id = int(event.event_key.rsplit(":", 1)[1])
         except (IndexError, ValueError):
             continue
-        expected = counts.get(surah_id)
-        if expected is not None and event.points != expected:
+        surah_ayah_count = ayah_counts.get(surah_id)
+        if surah_ayah_count is None:
+            continue
+        expected = min(
+            surah_ayah_count,
+            db.query(models.QuranProgress)
+            .filter(
+                models.QuranProgress.profile_id == event.profile_id,
+                models.QuranProgress.verse_key.like(f"{surah_id}:%"),
+                models.QuranProgress.state == "memorised",
+            )
+            .count(),
+        )
+        if event.points != expected:
             event.points = expected
             changed = True
     if changed:
@@ -139,7 +151,7 @@ def evaluate_badges(db: Session, profile_id: int) -> None:
 
 
 def profile_rewards(db: Session, profile_id: int) -> dict:
-    # Correct rewards created by releases that used a flat 50-star surah award.
+    # Keep earned surah stars aligned with the ayahs that remain memorised.
     _normalise_surah_reward_points(db, profile_id)
     stars = int(
         db.query(func.coalesce(func.sum(models.RewardEvent.points), 0))
@@ -170,12 +182,17 @@ def reward_progress(
     profile_id: int,
     verse_key: str,
     current_state: str,
-    surah_complete: bool,
+    surah_memorised_count: int,
     surah_ayah_count: int,
 ) -> None:
-    if current_state == "memorised" and surah_complete:
-        surah_id = verse_key.split(":", 1)[0]
-        award(db, profile_id, f"surah:{profile_id}:{surah_id}", "surah", surah_ayah_count)
+    surah_id = verse_key.split(":", 1)[0]
+    event_key = f"surah:{profile_id}:{surah_id}"
+    if current_state == "memorised" and surah_memorised_count == surah_ayah_count:
+        award(db, profile_id, event_key, "surah", surah_ayah_count)
+    surah_event = db.query(models.RewardEvent).filter_by(event_key=event_key).one_or_none()
+    if surah_event is not None and surah_event.points != surah_memorised_count:
+        surah_event.points = surah_memorised_count
+        db.commit()
     memorised_count = db.query(models.QuranProgress).filter_by(
         profile_id=profile_id,
         state="memorised",
