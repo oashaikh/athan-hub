@@ -101,6 +101,26 @@ def test_completed_surah_awards_one_star_per_ayah():
             assert response.status_code == 200
         assert client.get(f"/api/quran/profiles/{profile['id']}/rewards").json()["stars"] == 3
 
+        unmarked = client.put(
+            f"/api/quran/profiles/{profile['id']}/progress/108:3",
+            json={"state": "needs_practice", "completed_repetitions": 1},
+        )
+        assert unmarked.status_code == 200
+        assert client.get(f"/api/quran/profiles/{profile['id']}/rewards").json()["stars"] == 2
+
+        remarked = client.put(
+            f"/api/quran/profiles/{profile['id']}/progress/108:3",
+            json={"state": "memorised", "completed_repetitions": 1},
+        )
+        assert remarked.status_code == 200
+        assert client.get(f"/api/quran/profiles/{profile['id']}/rewards").json()["stars"] == 3
+
+        with SessionLocal() as db:
+            assert db.query(models.RewardEvent).filter_by(
+                profile_id=profile["id"],
+                category="surah",
+            ).count() == 1
+
 
 def test_legacy_flat_surah_reward_is_corrected_to_ayah_count():
     init_db()
@@ -114,6 +134,14 @@ def test_legacy_flat_surah_reward_is_corrected_to_ayah_count():
             created_at="2026-08-12T10:00:00+01:00",
         )
         db.add(event)
+        db.add_all(
+            models.QuranProgress(
+                profile_id=profile.id,
+                verse_key=f"114:{ayah}",
+                state="memorised",
+            )
+            for ayah in range(1, 7)
+        )
         db.commit()
 
         assert profile_rewards(db, profile.id)["stars"] == 6

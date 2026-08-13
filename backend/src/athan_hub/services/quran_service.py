@@ -215,7 +215,7 @@ def update_progress(
         profile_id,
         verse_key,
         payload.state,
-        memorised_count == surah_count,
+        memorised_count,
         surah_count,
     )
     return {
