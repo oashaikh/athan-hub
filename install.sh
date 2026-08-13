@@ -105,7 +105,8 @@ else
 fi
 
 if [[ -z "$SOURCE_ROOT" ]]; then
-  if script_directory="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)"; then
+  script_source="${BASH_SOURCE[0]:-}"
+  if [[ -n "$script_source" ]] && script_directory="$(cd -- "$(dirname -- "$script_source")" 2>/dev/null && pwd)"; then
     :
   else
     script_directory=""
