@@ -29,8 +29,10 @@ def test_memorised_reward_is_awarded_once():
     with SessionLocal() as db:
         profile = make_profile(db)
         key = f"memorised:{profile.id}:1:1"
-        assert award(db, profile.id, key, "memorised", 25)
-        assert not award(db, profile.id, key, "memorised", 25)
+        assert award(db, profile.id, key, "memorisation_milestone", 25)
+        assert not award(db, profile.id, key, "memorisation_milestone", 25)
+        assert award(db, profile.id, f"legacy-ayah:{profile.id}", "memorised", 99)
+        assert award(db, profile.id, f"legacy-repeat:{profile.id}", "repetition", 99)
         assert profile_rewards(db, profile.id)["stars"] == 25
 
 
@@ -61,9 +63,43 @@ def test_session_completion_and_progress_rewards_are_idempotent():
         assert progress.status_code == retry.status_code == 200
 
         rewards = client.get(f"/api/quran/profiles/{profile['id']}/rewards").json()
-        assert rewards["stars"] == 37  # 10 daily practice + 2 repeats + 25 memorised
+        assert rewards["stars"] == 10  # First completed practice session of the day.
         assert "first_session" in rewards["badges"]
         assert rewards["streak"] == 1
+
+
+def test_individual_ayahs_and_repetitions_do_not_award_stars():
+    init_db()
+    with TestClient(app) as client:
+        profile = client.post("/api/admin/profiles", json={"name": f"Progress {uuid.uuid4().hex[:6]}"}).json()
+        for ayah in range(1, 10):
+            response = client.put(
+                f"/api/quran/profiles/{profile['id']}/progress/2:{ayah}",
+                json={"state": "memorised", "completed_repetitions": 10},
+            )
+            assert response.status_code == 200
+        assert client.get(f"/api/quran/profiles/{profile['id']}/rewards").json()["stars"] == 0
+
+        tenth = client.put(
+            f"/api/quran/profiles/{profile['id']}/progress/2:10",
+            json={"state": "memorised", "completed_repetitions": 10},
+        )
+        assert tenth.status_code == 200
+        rewards = client.get(f"/api/quran/profiles/{profile['id']}/rewards").json()
+        assert rewards["stars"] == 25
+
+
+def test_completing_a_surah_is_a_significant_reward():
+    init_db()
+    with TestClient(app) as client:
+        profile = client.post("/api/admin/profiles", json={"name": f"Surah {uuid.uuid4().hex[:6]}"}).json()
+        for ayah in range(1, 4):
+            response = client.put(
+                f"/api/quran/profiles/{profile['id']}/progress/108:{ayah}",
+                json={"state": "memorised", "completed_repetitions": 1},
+            )
+            assert response.status_code == 200
+        assert client.get(f"/api/quran/profiles/{profile['id']}/rewards").json()["stars"] == 50
 
 
 def test_leaderboard_disabled_returns_hidden():

@@ -230,10 +230,10 @@ Rewards encourage consistency without punishing missed days.
 
 ### Personal rewards
 
-- One star per completed verse repetition, capped at 10 rewarded repetitions per verse per day.
 - Ten stars for the first completed practice session of a day.
-- Twenty-five stars the first time a verse becomes memorised.
+- Twenty-five stars at 10 memorised ayahs, 100 at 50, and 250 at 100.
 - Fifty stars the first time every verse in a surah is memorised.
+- Individual ayahs and repetitions update progress but never award stars.
 - Practice streaks count distinct local calendar days with a completed session.
 - Ending a streak never removes stars, badges, or mastered progress.
 
@@ -245,7 +245,7 @@ Initial badges cover:
 - First completed surah.
 - One, five, and ten cumulative practice hours.
 
-Reward events use unique semantic keys such as `memorised:PROFILE:VERSE`. Repeated requests, retries, status toggling, or session updates cannot award the same one-time reward twice.
+Reward events use unique semantic keys such as `memorised-milestone:PROFILE:THRESHOLD`. Repeated requests, retries, status toggling, or session updates cannot award the same one-time reward twice.
 
 ### Optional sibling leaderboard
 
@@ -253,9 +253,8 @@ Admin can enable or disable the leaderboard. It is disabled by default on new in
 
 When enabled, the child experience shows weekly stars for active profiles. Admin can include or exclude these categories:
 
-- Completed repetitions.
 - Daily practice.
-- Newly memorised ayahs.
+- Memorisation milestones.
 - Completed surahs.
 
 Personal progress remains available whether or not the leaderboard is enabled.

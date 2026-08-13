@@ -15,7 +15,7 @@ DEFAULT_SETTINGS = {
     "dashboard_background": "bg.png",
     "quran_cache_limit_bytes": str(5 * 1024 * 1024 * 1024),
     "leaderboard_enabled": "0",
-    "leaderboard_repetitions": "1",
+    "leaderboard_repetitions": "0",
     "leaderboard_daily_practice": "1",
     "leaderboard_memorised": "1",
     "leaderboard_surahs": "1",

@@ -24,6 +24,14 @@ BADGES = {
     "hours_10": ("seconds", 10 * 3600),
 }
 
+MEMORISATION_MILESTONES = {
+    10: 25,
+    50: 100,
+    100: 250,
+}
+
+SIGNIFICANT_REWARD_CATEGORIES = {"daily_practice", "memorisation_milestone", "surah"}
+
 
 def _now() -> str:
     return now_local().isoformat()
@@ -107,6 +115,7 @@ def profile_rewards(db: Session, profile_id: int) -> dict:
     stars = int(
         db.query(func.coalesce(func.sum(models.RewardEvent.points), 0))
         .filter_by(profile_id=profile_id)
+        .filter(models.RewardEvent.category.in_(SIGNIFICANT_REWARD_CATEGORIES))
         .scalar()
         or 0
     )
@@ -131,19 +140,25 @@ def reward_progress(
     db: Session,
     profile_id: int,
     verse_key: str,
-    previous_state: str | None,
     current_state: str,
-    completed_repetitions: int,
     surah_complete: bool,
 ) -> None:
-    day = now_local().date().isoformat()
-    for repetition in range(1, min(completed_repetitions, 10) + 1):
-        award(db, profile_id, f"repeat:{profile_id}:{verse_key}:{day}:{repetition}", "repetition", 1)
-    if current_state == "memorised" and previous_state != "memorised":
-        award(db, profile_id, f"memorised:{profile_id}:{verse_key}", "memorised", 25)
     if current_state == "memorised" and surah_complete:
         surah_id = verse_key.split(":", 1)[0]
         award(db, profile_id, f"surah:{profile_id}:{surah_id}", "surah", 50)
+    memorised_count = db.query(models.QuranProgress).filter_by(
+        profile_id=profile_id,
+        state="memorised",
+    ).count()
+    for threshold, points in MEMORISATION_MILESTONES.items():
+        if memorised_count >= threshold:
+            award(
+                db,
+                profile_id,
+                f"memorised-milestone:{profile_id}:{threshold}",
+                "memorisation_milestone",
+                points,
+            )
     evaluate_badges(db, profile_id)
 
 
@@ -177,9 +192,8 @@ def leaderboard(db: Session, week_start: dt.date | None = None) -> dict:
     start = week_start or (today - dt.timedelta(days=today.weekday()))
     end = start + dt.timedelta(days=7)
     included = {
-        "repetition": (db.get(models.Setting, "leaderboard_repetitions").value == "1"),
         "daily_practice": (db.get(models.Setting, "leaderboard_daily_practice").value == "1"),
-        "memorised": (db.get(models.Setting, "leaderboard_memorised").value == "1"),
+        "memorisation_milestone": (db.get(models.Setting, "leaderboard_memorised").value == "1"),
         "surah": (db.get(models.Setting, "leaderboard_surahs").value == "1"),
     }
     entries = []

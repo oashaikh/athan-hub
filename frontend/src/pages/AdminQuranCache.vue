@@ -27,7 +27,7 @@
       </div>
     </section>
 
-    <form class="surface-card leaderboard-form" @submit.prevent="save"><div><h2>Sibling leaderboard</h2><p>Off by default. Personal stars and badges remain visible either way.</p></div><label class="toggle-line"><input v-model="reward.enabled" type="checkbox"> Show weekly leaderboard</label><fieldset :disabled="!reward.enabled"><legend>Include points for</legend><label><input v-model="reward.repetitions" type="checkbox"> Repetitions</label><label><input v-model="reward.daily_practice" type="checkbox"> Daily practice</label><label><input v-model="reward.memorised" type="checkbox"> Memorised ayahs</label><label><input v-model="reward.surahs" type="checkbox"> Completed surahs</label></fieldset><button class="button is-primary">Save reward settings</button></form>
+    <form class="surface-card leaderboard-form" @submit.prevent="save"><div><h2>Sibling leaderboard</h2><p>Off by default. Stars recognise daily practice, completed surahs, and memorisation milestones—not individual ayahs or repetitions.</p></div><label class="toggle-line"><input v-model="reward.enabled" type="checkbox"> Show weekly leaderboard</label><fieldset :disabled="!reward.enabled"><legend>Include points for</legend><label><input v-model="reward.daily_practice" type="checkbox"> Daily practice</label><label><input v-model="reward.memorised" type="checkbox"> Memorisation milestones</label><label><input v-model="reward.surahs" type="checkbox"> Completed surahs</label></fieldset><button class="button is-primary">Save reward settings</button></form>
     <article class="surface-card source-notice"><h2>Verified sources</h2><p>Arabic text, Saheeh International, transliteration and the 139-reciter catalogue are pinned from QUL. Source hashes and notices ship with this installation.</p><router-link to="/admin/quran-sources">Review sources and licences</router-link></article>
   </div>
 </template>
@@ -37,7 +37,7 @@ import { onMounted, reactive, ref } from 'vue'
 import api from '../api'
 
 const cache = reactive<any>({ items: [] })
-const reward = reactive<any>({ enabled: false, repetitions: true, daily_practice: true, memorised: true, surahs: true })
+const reward = reactive<any>({ enabled: false, repetitions: false, daily_practice: true, memorised: true, surahs: true })
 const download = reactive<any>({ recitation_id: '', surah_id: '' })
 const recitations = ref<any[]>([])
 const surahs = ref<any[]>([])
