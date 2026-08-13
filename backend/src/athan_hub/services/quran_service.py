@@ -216,6 +216,7 @@ def update_progress(
         verse_key,
         payload.state,
         memorised_count == surah_count,
+        surah_count,
     )
     return {
         "verse_key": row.verse_key,

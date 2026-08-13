@@ -89,7 +89,7 @@ def test_individual_ayahs_and_repetitions_do_not_award_stars():
         assert rewards["stars"] == 25
 
 
-def test_completing_a_surah_is_a_significant_reward():
+def test_completed_surah_awards_one_star_per_ayah():
     init_db()
     with TestClient(app) as client:
         profile = client.post("/api/admin/profiles", json={"name": f"Surah {uuid.uuid4().hex[:6]}"}).json()
@@ -99,7 +99,26 @@ def test_completing_a_surah_is_a_significant_reward():
                 json={"state": "memorised", "completed_repetitions": 1},
             )
             assert response.status_code == 200
-        assert client.get(f"/api/quran/profiles/{profile['id']}/rewards").json()["stars"] == 50
+        assert client.get(f"/api/quran/profiles/{profile['id']}/rewards").json()["stars"] == 3
+
+
+def test_legacy_flat_surah_reward_is_corrected_to_ayah_count():
+    init_db()
+    with SessionLocal() as db:
+        profile = make_profile(db)
+        event = models.RewardEvent(
+            profile_id=profile.id,
+            event_key=f"surah:{profile.id}:114",
+            category="surah",
+            points=50,
+            created_at="2026-08-12T10:00:00+01:00",
+        )
+        db.add(event)
+        db.commit()
+
+        assert profile_rewards(db, profile.id)["stars"] == 6
+        db.refresh(event)
+        assert event.points == 6
 
 
 def test_leaderboard_disabled_returns_hidden():

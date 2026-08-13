@@ -232,7 +232,7 @@ Rewards encourage consistency without punishing missed days.
 
 - Ten stars for the first completed practice session of a day.
 - Twenty-five stars at 10 memorised ayahs, 100 at 50, and 250 at 100.
-- Fifty stars the first time every verse in a surah is memorised.
+- One star per ayah the first time every verse in a surah is memorised.
 - Individual ayahs and repetitions update progress but never award stars.
 - Practice streaks count distinct local calendar days with a completed session.
 - Ending a streak never removes stars, badges, or mastered progress.
