@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import datetime as dt
+from functools import lru_cache
 
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
@@ -31,6 +32,32 @@ MEMORISATION_MILESTONES = {
 }
 
 SIGNIFICANT_REWARD_CATEGORIES = {"daily_practice", "memorisation_milestone", "surah"}
+
+
+@lru_cache(maxsize=1)
+def _surah_ayah_counts() -> dict[int, int]:
+    from .quran_service import resources
+
+    return {row["id"]: row["ayah_count"] for row in resources().list_surahs()}
+
+
+def _normalise_surah_reward_points(db: Session, profile_id: int | None = None) -> None:
+    query = db.query(models.RewardEvent).filter_by(category="surah")
+    if profile_id is not None:
+        query = query.filter_by(profile_id=profile_id)
+    changed = False
+    counts = _surah_ayah_counts()
+    for event in query:
+        try:
+            surah_id = int(event.event_key.rsplit(":", 1)[1])
+        except (IndexError, ValueError):
+            continue
+        expected = counts.get(surah_id)
+        if expected is not None and event.points != expected:
+            event.points = expected
+            changed = True
+    if changed:
+        db.commit()
 
 
 def _now() -> str:
@@ -112,6 +139,8 @@ def evaluate_badges(db: Session, profile_id: int) -> None:
 
 
 def profile_rewards(db: Session, profile_id: int) -> dict:
+    # Correct rewards created by releases that used a flat 50-star surah award.
+    _normalise_surah_reward_points(db, profile_id)
     stars = int(
         db.query(func.coalesce(func.sum(models.RewardEvent.points), 0))
         .filter_by(profile_id=profile_id)
@@ -142,10 +171,11 @@ def reward_progress(
     verse_key: str,
     current_state: str,
     surah_complete: bool,
+    surah_ayah_count: int,
 ) -> None:
     if current_state == "memorised" and surah_complete:
         surah_id = verse_key.split(":", 1)[0]
-        award(db, profile_id, f"surah:{profile_id}:{surah_id}", "surah", 50)
+        award(db, profile_id, f"surah:{profile_id}:{surah_id}", "surah", surah_ayah_count)
     memorised_count = db.query(models.QuranProgress).filter_by(
         profile_id=profile_id,
         state="memorised",
@@ -188,6 +218,7 @@ def leaderboard(db: Session, week_start: dt.date | None = None) -> dict:
     enabled = (db.get(models.Setting, "leaderboard_enabled") or models.Setting(value="0", key="")).value == "1"
     if not enabled:
         return {"enabled": False, "entries": []}
+    _normalise_surah_reward_points(db)
     today = now_local().date()
     start = week_start or (today - dt.timedelta(days=today.weekday()))
     end = start + dt.timedelta(days=7)
