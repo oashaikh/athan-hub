@@ -7,20 +7,6 @@
       <div class="ambient-orb" aria-hidden="true"></div>
       <div class="architectural-frame" aria-hidden="true"></div>
 
-      <header class="dashboard-masthead" data-reveal="masthead">
-        <div class="wordmark">
-          <span class="wordmark-mark" aria-hidden="true">A</span>
-          <div>
-            <p class="wordmark-name">Athan Hub</p>
-            <p class="wordmark-host">athan.local</p>
-          </div>
-        </div>
-        <div class="date-lockup">
-          <p class="date-day">{{ dayLabel }}</p>
-          <p>{{ dateLabel }}</p>
-        </div>
-      </header>
-
       <main class="dashboard-content">
         <section v-if="loading" class="dashboard-loading" aria-label="Loading prayer times" aria-live="polite">
           <div class="skeleton skeleton-kicker"></div>
@@ -68,7 +54,7 @@
                 <p class="section-kicker">Daily rhythm</p>
                 <h2 id="schedule-title">Today’s prayer times</h2>
               </div>
-              <p class="schedule-date">Live schedule</p>
+              <p class="schedule-date">{{ dayLabel }}, {{ dateLabel }}</p>
             </div>
 
             <div class="prayer-grid">
@@ -363,7 +349,6 @@ onBeforeUnmount(() => {
   pointer-events: none;
 }
 
-.dashboard-masthead,
 .dashboard-content,
 .dashboard-footer {
   position: relative;
@@ -371,21 +356,6 @@ onBeforeUnmount(() => {
   width: min(100%, 1480px);
   margin-inline: auto;
 }
-
-.dashboard-masthead {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 24px;
-  padding-right: 132px;
-}
-
-.wordmark { display: flex; align-items: center; gap: 12px; }
-.wordmark-mark { display: grid; width: 42px; height: 42px; place-items: center; border: 1px solid rgba(227,198,134,.48); border-radius: 14px 14px 14px 5px; background: rgba(227,198,134,.1); color: var(--color-accent-strong); font-family: var(--font-display); font-size: 1.2rem; font-weight: 700; }
-.wordmark-name { font-weight: 800; letter-spacing: .01em; }
-.wordmark-host { margin-top: 1px; color: var(--color-text-subtle); font-size: .7rem; letter-spacing: .05em; }
-.date-lockup { color: var(--color-text-muted); font-size: .78rem; text-align: right; }
-.date-day { margin-bottom: 2px; color: var(--color-text); font-size: .9rem; font-weight: 750; }
 
 .dashboard-content { display: grid; flex: 1; align-content: center; padding-block: clamp(42px, 6vh, 86px) clamp(34px, 5vh, 68px); }
 
@@ -457,11 +427,6 @@ onBeforeUnmount(() => {
 
 @media (max-width: 760px) {
   .dashboard-scrim { padding: max(16px, env(safe-area-inset-top)) 14px max(18px, env(safe-area-inset-bottom)); }
-  .dashboard-masthead { align-items: flex-start; padding-right: 58px; }
-  .wordmark-mark { width: 38px; height: 38px; }
-  .wordmark-host { display: none; }
-  .date-lockup { max-width: 116px; font-size: .67rem; }
-  .date-day { font-size: .78rem; }
   .dashboard-content { align-content: start; padding-block: 48px 32px; }
   .prayer-hero { grid-template-columns: 1fr; gap: 28px; min-height: 0; text-align: center; }
   .hero-context { display: grid; place-items: center; }
@@ -479,8 +444,6 @@ onBeforeUnmount(() => {
 
 @media (max-width: 380px) {
   .dashboard-scrim { padding-inline: 10px; }
-  .wordmark-name { font-size: .9rem; }
-  .date-lockup { display: none; }
   .hero-primary h1 { font-size: 3.45rem; }
   .countdown-lockup { gap: 8px; padding-inline: 12px; }
   .countdown-label { font-size: .58rem; }

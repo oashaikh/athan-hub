@@ -68,8 +68,7 @@ export const animateDashboardEntrance = (scope: Element) => {
   if (prefersReducedMotion()) return null
   return gsap.context(() => {
     gsap.timeline({ defaults: { ease: 'power3.out' } })
-      .from('[data-reveal="masthead"]', { autoAlpha: 0, y: -10, duration: 0.32 })
-      .from('[data-reveal="hero-copy"]', { autoAlpha: 0, y: 18, duration: 0.46 }, '-=0.1')
+      .from('[data-reveal="hero-copy"]', { autoAlpha: 0, y: 18, duration: 0.46 })
       .from('[data-reveal="hero-time"]', { autoAlpha: 0, y: 16, scale: 0.985, duration: 0.42 }, '-=0.3')
       .from('.prayer-card', { autoAlpha: 0, y: 14, duration: 0.32, stagger: 0.045 }, '-=0.2')
       .from('[data-reveal="footer"]', { autoAlpha: 0, duration: 0.24 }, '-=0.12')
