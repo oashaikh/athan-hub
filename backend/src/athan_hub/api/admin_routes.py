@@ -64,7 +64,7 @@ def reward_settings(db: Session = Depends(get_db)):
     values = settings_service.all_settings(db)
     return {
         "enabled": values["leaderboard_enabled"] == "1",
-        "repetitions": values["leaderboard_repetitions"] == "1",
+        "repetitions": False,
         "daily_practice": values["leaderboard_daily_practice"] == "1",
         "memorised": values["leaderboard_memorised"] == "1",
         "surahs": values["leaderboard_surahs"] == "1",
@@ -77,7 +77,7 @@ def update_reward_settings(payload: LeaderboardSettingsUpdate, db: Session = Dep
         db,
         {
             "leaderboard_enabled": payload.enabled,
-            "leaderboard_repetitions": payload.repetitions,
+            "leaderboard_repetitions": False,
             "leaderboard_daily_practice": payload.daily_practice,
             "leaderboard_memorised": payload.memorised,
             "leaderboard_surahs": payload.surahs,

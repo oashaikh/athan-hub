@@ -192,7 +192,6 @@ def update_progress(
     if row is None:
         row = models.QuranProgress(profile_id=profile_id, verse_key=verse_key, first_practised_at=now)
         db.add(row)
-    previous_state = row.state
     row.state = payload.state
     row.completed_repetitions = (
         payload.completed_repetitions
@@ -215,9 +214,7 @@ def update_progress(
         db,
         profile_id,
         verse_key,
-        previous_state,
         payload.state,
-        row.completed_repetitions,
         memorised_count == surah_count,
     )
     return {
