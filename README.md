@@ -97,8 +97,12 @@ sudo athan-hub-doctor
 # Backup timetable, profiles, progress, Athan MP3s, settings, and history
 sudo athan-hub-backup /path/to/backup/directory
 
-# Install the latest main branch without deleting user data
+# Check the configured branch now and deploy it when it changed
 sudo athan-hub-update
+
+# Follow updater activity (the timer checks every two minutes)
+systemctl list-timers athan-hub-update.timer
+sudo journalctl -u athan-hub-update.service -f
 
 # Restart services
 sudo systemctl restart athan-hub-api athan-hub-scheduler nginx
@@ -114,6 +118,29 @@ sudo athan-hub-uninstall --purge
 ```
 
 Detailed guidance is in [Installation](docs/INSTALL.md) and [Troubleshooting](docs/TROUBLESHOOTING.md).
+
+### Automatic deployments
+
+The installer enables `athan-hub-update.timer`. It fetches the configured public
+GitHub branch over HTTPS, deploys only a new commit, and verifies both services
+and HTTP health before recording success. It postpones an update while Athan or
+Quran audio is playing. Before changing the application it takes a private
+rollback snapshot of the application, configuration, and persistent data; a
+failed health check automatically restores that snapshot. The five most recent
+pre-update data backups are retained under `/var/backups/athan-hub`.
+
+The default tracked branch is the branch passed to the installer (`main` when
+omitted). To use a protected integration branch, edit the root-owned file:
+
+```bash
+sudoedit /etc/athan-hub/updater.env
+# ATHAN_UPDATE_REPOSITORY=https://github.com/oashaikh/athan-hub.git
+# ATHAN_UPDATE_BRANCH=dev
+sudo systemctl start athan-hub-update.service
+```
+
+No GitHub token or SSH key is stored on the appliance. Development happens in a
+separate clone; the appliance only receives commits that are already public.
 
 ## Development
 
