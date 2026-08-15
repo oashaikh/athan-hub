@@ -107,6 +107,34 @@ def test_public_profile_state_is_strict_and_isolated():
         assert bad_range.status_code == 422
 
 
+def test_preferred_reciter_persists_after_reload():
+    init_db()
+    with TestClient(app) as client:
+        profile = client.post("/api/admin/profiles", json={"name": "Zainab"}).json()
+
+        client.put(
+            f"/api/quran/profiles/{profile['id']}/state",
+            json={
+                "recitation_id": 100005,
+                "surah_id": 1,
+                "start_ayah": 1,
+                "end_ayah": 7,
+                "repetitions": 3,
+                "playback_speed": 1.0,
+                "show_arabic": True,
+                "show_translation": True,
+                "show_transliteration": False,
+                "recall_mode": False,
+            },
+        )
+
+        detail = client.get(f"/api/quran/profiles/{profile['id']}").json()
+        assert detail["preferred_recitation_id"] == 100005
+
+        listed = next(row for row in client.get("/api/quran/profiles").json() if row["id"] == profile["id"])
+        assert listed["preferred_recitation_id"] == 100005
+
+
 def test_public_resources_and_progress_round_trip():
     init_db()
     with TestClient(app) as client:
