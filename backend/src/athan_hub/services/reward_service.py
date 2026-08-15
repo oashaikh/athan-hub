@@ -33,12 +33,30 @@ MEMORISATION_MILESTONES = {
 
 SIGNIFICANT_REWARD_CATEGORIES = {"daily_practice", "memorisation_milestone", "surah"}
 
+# Only the surah-completion metric is revocable: a completed surah can become
+# incomplete again (un-memorising an ayah), so "first_surah" tracks it live.
+# Every other badge, once earned, is kept permanently, matching the milestone
+# stars they pair with, which are also never revoked.
+REVOCABLE_METRICS = {"surahs"}
+
 
 @lru_cache(maxsize=1)
 def _surah_ayah_counts() -> dict[int, int]:
     from .quran_service import resources
 
     return {row["id"]: row["ayah_count"] for row in resources().list_surahs()}
+
+
+def _surah_memorised_count(db: Session, profile_id: int, surah_id: int) -> int:
+    return (
+        db.query(models.QuranProgress)
+        .filter(
+            models.QuranProgress.profile_id == profile_id,
+            models.QuranProgress.verse_key.like(f"{surah_id}:%"),
+            models.QuranProgress.state == "memorised",
+        )
+        .count()
+    )
 
 
 def _normalise_surah_reward_points(db: Session, profile_id: int | None = None) -> None:
@@ -55,16 +73,7 @@ def _normalise_surah_reward_points(db: Session, profile_id: int | None = None) -
         surah_ayah_count = ayah_counts.get(surah_id)
         if surah_ayah_count is None:
             continue
-        expected = min(
-            surah_ayah_count,
-            db.query(models.QuranProgress)
-            .filter(
-                models.QuranProgress.profile_id == event.profile_id,
-                models.QuranProgress.verse_key.like(f"{surah_id}:%"),
-                models.QuranProgress.state == "memorised",
-            )
-            .count(),
-        )
+        expected = min(surah_ayah_count, _surah_memorised_count(db, event.profile_id, surah_id))
         if event.points != expected:
             event.points = expected
             changed = True
@@ -119,14 +128,26 @@ def _streak(dates: list[dt.date]) -> int:
     return streak
 
 
+def _completed_surah_count(db: Session, profile_id: int) -> int:
+    ayah_counts = _surah_ayah_counts()
+    completed = 0
+    for (event_key,) in (
+        db.query(models.RewardEvent.event_key).filter_by(profile_id=profile_id, category="surah")
+    ):
+        try:
+            surah_id = int(event_key.rsplit(":", 1)[1])
+        except (IndexError, ValueError):
+            continue
+        surah_ayah_count = ayah_counts.get(surah_id)
+        if surah_ayah_count is not None and _surah_memorised_count(db, profile_id, surah_id) == surah_ayah_count:
+            completed += 1
+    return completed
+
+
 def _metrics(db: Session, profile_id: int) -> dict[str, int]:
     sessions = db.query(models.QuranSession).filter_by(profile_id=profile_id, completed=1)
     memorised = db.query(models.QuranProgress).filter_by(profile_id=profile_id, state="memorised").count()
-    completed_surahs = (
-        db.query(models.RewardEvent)
-        .filter_by(profile_id=profile_id, category="surah")
-        .count()
-    )
+    completed_surahs = _completed_surah_count(db, profile_id)
     return {
         "sessions": sessions.count(),
         "streak": _streak(_completed_dates(db, profile_id)),
@@ -141,9 +162,17 @@ def evaluate_badges(db: Session, profile_id: int) -> None:
     existing = {
         key for (key,) in db.query(models.ProfileBadge.badge_key).filter_by(profile_id=profile_id).all()
     }
+    changed = False
     for badge_key, (metric, threshold) in BADGES.items():
-        if badge_key not in existing and metrics[metric] >= threshold:
+        earned = metrics[metric] >= threshold
+        if badge_key not in existing and earned:
             db.add(models.ProfileBadge(profile_id=profile_id, badge_key=badge_key, awarded_at=_now()))
+            changed = True
+        elif badge_key in existing and not earned and metric in REVOCABLE_METRICS:
+            db.query(models.ProfileBadge).filter_by(profile_id=profile_id, badge_key=badge_key).delete()
+            changed = True
+    if not changed:
+        return
     try:
         db.commit()
     except IntegrityError:
@@ -181,14 +210,12 @@ def reward_progress(
     db: Session,
     profile_id: int,
     verse_key: str,
-    current_state: str,
     surah_memorised_count: int,
-    surah_ayah_count: int,
 ) -> None:
     surah_id = verse_key.split(":", 1)[0]
     event_key = f"surah:{profile_id}:{surah_id}"
-    if current_state == "memorised" and surah_memorised_count == surah_ayah_count:
-        award(db, profile_id, event_key, "surah", surah_ayah_count)
+    if surah_memorised_count > 0:
+        award(db, profile_id, event_key, "surah", surah_memorised_count)
     surah_event = db.query(models.RewardEvent).filter_by(event_key=event_key).one_or_none()
     if surah_event is not None and surah_event.points != surah_memorised_count:
         surah_event.points = surah_memorised_count
