@@ -15,6 +15,7 @@ NEW_HOSTNAME=""
 TIMEZONE=""
 REQUESTED_PIN=""
 PIN_MODE="preserve"
+INSTALL_SYSTEM_PACKAGES=true
 REPOSITORY="${ATHAN_REPOSITORY:-$DEFAULT_REPOSITORY}"
 
 usage() {
@@ -30,6 +31,8 @@ Options:
   --no-pin              Disable dashboard PIN protection
   --source-dir PATH     Install from an existing checkout instead of GitHub
   --branch NAME         GitHub branch to install (default: main)
+  --skip-system-packages
+                        Reuse installed OS/audio packages during an automatic update
   -h, --help            Show this help
 
 Optional Wi-Fi setup uses environment variables so the password is not placed in
@@ -74,6 +77,7 @@ while (($#)); do
     --no-pin) REQUESTED_PIN=""; PIN_MODE="disable"; shift ;;
     --source-dir) [[ $# -ge 2 ]] || fail "--source-dir needs a value"; SOURCE_ROOT="$(cd -- "$2" && pwd)"; shift 2 ;;
     --branch) [[ $# -ge 2 ]] || fail "--branch needs a value"; BRANCH="$2"; shift 2 ;;
+    --skip-system-packages) INSTALL_SYSTEM_PACKAGES=false; shift ;;
     -h|--help) usage; exit 0 ;;
     *) fail "Unknown option: $1" ;;
   esac
@@ -84,23 +88,31 @@ done
 [[ "$BRANCH" =~ ^[A-Za-z0-9._/-]+$ ]] || fail "Invalid branch"
 [[ "$PIN_MODE" != "set" || "$REQUESTED_PIN" =~ ^[A-Za-z0-9._-]{4,128}$ ]] || fail "PIN must be 4-128 characters using letters, numbers, dot, underscore, or dash"
 
-log "Installing operating-system dependencies"
-export DEBIAN_FRONTEND=noninteractive
-apt-get update
-apt-get install -y --no-install-recommends \
-  avahi-daemon bluez ca-certificates curl dbus-user-session gettext-base \
-  mpg123 nginx openssl python3 python3-pip python3-venv rsync tar
+if [[ "$INSTALL_SYSTEM_PACKAGES" == true ]]; then
+  log "Installing operating-system dependencies"
+  export DEBIAN_FRONTEND=noninteractive
+  apt-get update
+  apt-get install -y --no-install-recommends \
+    avahi-daemon bluez ca-certificates curl dbus-user-session gettext-base \
+    git mpg123 nginx openssl python3 python3-pip python3-venv rsync tar
+fi
 
 python3 - <<'PY' || fail "Python 3.10 or newer is required (Ubuntu 22.04 or newer)"
 import sys
 raise SystemExit(0 if sys.version_info >= (3, 10) else 1)
 PY
 
-if apt-cache show pipewire-pulse wireplumber libspa-0.2-bluetooth >/dev/null 2>&1; then
+if dpkg-query -W -f='${Status}' pipewire-pulse 2>/dev/null | grep -q 'install ok installed'; then
+  AUDIO_BACKEND="pipewire"
+elif [[ "$INSTALL_SYSTEM_PACKAGES" == true ]] && apt-cache show pipewire-pulse wireplumber libspa-0.2-bluetooth >/dev/null 2>&1; then
   apt-get install -y --no-install-recommends pipewire pipewire-pulse wireplumber libspa-0.2-bluetooth pulseaudio-utils
   AUDIO_BACKEND="pipewire"
 else
-  apt-get install -y --no-install-recommends pulseaudio pulseaudio-module-bluetooth pulseaudio-utils
+  if [[ "$INSTALL_SYSTEM_PACKAGES" == true ]]; then
+    apt-get install -y --no-install-recommends pulseaudio pulseaudio-module-bluetooth pulseaudio-utils
+  else
+    command -v pulseaudio >/dev/null || fail "No supported audio backend is installed; rerun without --skip-system-packages"
+  fi
   AUDIO_BACKEND="pulseaudio"
 fi
 
@@ -249,6 +261,16 @@ for service in athan-hub-api athan-hub-scheduler; do
   sed -e "s/@ATHAN_USER@/$SERVICE_USER/g" -e "s/@ATHAN_UID@/$SERVICE_UID/g" \
     "$INSTALL_ROOT/deploy/systemd/$service.service.in" > "/etc/systemd/system/$service.service"
 done
+install -m 0644 "$INSTALL_ROOT/deploy/systemd/athan-hub-update.service" /etc/systemd/system/athan-hub-update.service
+install -m 0644 "$INSTALL_ROOT/deploy/systemd/athan-hub-update.timer" /etc/systemd/system/athan-hub-update.timer
+if [[ ! -e "$CONFIG_ROOT/updater.env" ]]; then
+  cat > "$CONFIG_ROOT/updater.env" <<EOF
+ATHAN_UPDATE_REPOSITORY=https://github.com/${REPOSITORY}.git
+ATHAN_UPDATE_BRANCH=${BRANCH}
+EOF
+  chown root:root "$CONFIG_ROOT/updater.env"
+  chmod 0644 "$CONFIG_ROOT/updater.env"
+fi
 install -m 0644 "$INSTALL_ROOT/deploy/nginx/athan-hub.nginx" /etc/nginx/sites-available/athan-hub
 ln -sfn /etc/nginx/sites-available/athan-hub /etc/nginx/sites-enabled/athan-hub
 rm -f /etc/nginx/sites-enabled/default
@@ -260,7 +282,7 @@ if command -v ufw >/dev/null && ufw status | grep -q '^Status: active'; then
 fi
 
 systemctl daemon-reload
-systemctl enable --now bluetooth.service avahi-daemon.service nginx.service athan-hub-api.service athan-hub-scheduler.service
+systemctl enable --now bluetooth.service avahi-daemon.service nginx.service athan-hub-api.service athan-hub-scheduler.service athan-hub-update.timer
 systemctl restart athan-hub-api.service athan-hub-scheduler.service nginx.service
 
 log "Waiting for the application health check"

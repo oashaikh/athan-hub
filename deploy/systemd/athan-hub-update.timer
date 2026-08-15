@@ -1,0 +1,12 @@
+[Unit]
+Description=Poll for Athan Hub updates
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=2min
+RandomizedDelaySec=15s
+Persistent=true
+Unit=athan-hub-update.service
+
+[Install]
+WantedBy=timers.target
