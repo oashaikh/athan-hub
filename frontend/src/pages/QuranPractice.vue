@@ -21,7 +21,7 @@
         <div v-if="error" class="reader-error" role="status"><span class="material-icons">error_outline</span><span>{{ error }}</span><button type="button" @click="retry">Retry</button></div>
         <div v-if="loading" class="reader-message">Loading verses…</div>
         <div v-else class="verse-list">
-          <article v-for="verse in selectedVerses" :key="verse.verse_key" class="verse" :class="[progressState(verse.verse_key), { playing: verse.verse_key === highlightedVerse }]">
+          <article v-for="verse in selectedVerses" :key="verse.verse_key" :ref="el => setVerseEl(verse.verse_key, el)" class="verse" :class="[progressState(verse.verse_key), { playing: verse.verse_key === highlightedVerse }]">
             <span class="verse-number">{{ verse.ayah_number }}</span>
             <p v-if="profile.show_arabic && (!profile.recall_mode || (listenCounts[verse.verse_key] || 0) < profile.repetitions || revealed.has(verse.verse_key))" class="arabic" dir="rtl">{{ verse.arabic }}</p>
             <button v-else-if="profile.show_arabic" type="button" class="reveal" @click="revealed.add(verse.verse_key)">Reveal Arabic</button>
@@ -52,7 +52,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import api from '../api'
 import ChildHeader from '../components/ChildHeader.vue'
 import QuranPlayer from '../components/QuranPlayer.vue'
@@ -83,7 +83,10 @@ const repetition = (key: string) => { if (!profile.value) return; const profileI
 const mark = async (verse: any, state: string) => { if (!profile.value) return; const existing = progress.value.find(row => row.verse_key === verse.verse_key); try { await api.put(`/quran/profiles/${profile.value.id}/progress/${verse.verse_key}`, { state, completed_repetitions: existing?.completed_repetitions || 0 }); await loadProfile() } catch (caught) { error.value = message(caught, 'Memorisation progress could not be saved.') } }
 const loadProfile = async () => { if (!profile.value) return; const [detail, rewardResult, leaderboardResult] = await Promise.all([api.get(`/quran/profiles/${profile.value.id}`), api.get(`/quran/profiles/${profile.value.id}/rewards`), api.get('/quran/leaderboard')]); progress.value = detail.data.progress; rewards.value = rewardResult.data; leaderboard.value = leaderboardResult.data }
 const completeSession = async () => { if (!profile.value || !sessionId.value) return; const elapsed = Math.max(1, Math.round((Date.now() - sessionStartedAt) / 1000)); const completedRepetitions = recitation.value?.capability === 'surah' ? 1 : sessionRepetitions.value; try { await repetitionQueue; await api.put(`/quran/profiles/${profile.value.id}/sessions/${sessionId.value}`, { repetitions: completedRepetitions, practice_seconds: elapsed, completed: true }); sessionId.value = null; sessionRepetitions.value = 0; await loadProfile() } catch (caught) { error.value = message(caught, 'Practice completion could not be saved.') } }
+const verseEls = reactive<Record<string, Element>>({})
+const setVerseEl = (key: string, el: Element | { $el: Element } | null) => { if (el) verseEls[key] = el instanceof Element ? el : el.$el }
 const retry = () => loadVerses(false)
+watch(highlightedVerse, async key => { if (!key) return; await nextTick(); verseEls[key]?.scrollIntoView({ behavior: 'smooth', block: 'center' }) })
 watch(surahId, () => { if (!initialising) loadVerses(true) })
 watch(profile, async (value, oldValue) => { if (!initialising && value && value.id !== oldValue?.id) { initialising = true; surahId.value = value.last_surah_id; await loadProfile(); await loadVerses(false); initialising = false } })
 onMounted(async () => { try { await Promise.all([store.load(), api.get('/quran/surahs').then(r => surahs.value = r.data), api.get('/quran/recitations').then(r => recitations.value = r.data)]); if (profile.value) { surahId.value = profile.value.last_surah_id; await loadProfile(); await loadVerses(false) } else loading.value = false } catch (caught) { error.value = message(caught, 'Quran practice could not be loaded.'); loading.value = false } finally { initialising = false } })
