@@ -26,4 +26,14 @@ describe('QuranPlayer', () => {
     expect(wrapper.emitted('repetition-complete')).toBeUndefined()
     expect(wrapper.emitted('range-complete')).toHaveLength(1)
   })
+
+  it('emits the playing verse key while audio plays, and clears it on pause', async () => {
+    const wrapper = mount(QuranPlayer, {
+      props: { profileId: 1, recitation: { id: 100005, capability: 'ayah' }, verses, repetitions: 1, playbackSpeed: 1 }
+    })
+    await wrapper.get('audio').trigger('play')
+    expect(wrapper.emitted('verse-highlight')?.at(-1)).toEqual(['1:1'])
+    await wrapper.get('audio').trigger('pause')
+    expect(wrapper.emitted('verse-highlight')?.at(-1)).toEqual([null])
+  })
 })
