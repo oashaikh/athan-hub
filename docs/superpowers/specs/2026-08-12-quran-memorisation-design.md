@@ -232,11 +232,11 @@ Rewards encourage consistency without punishing missed days.
 
 - Ten stars for the first completed practice session of a day.
 - Twenty-five stars at 10 memorised ayahs, 100 at 50, and 250 at 100.
-- One star per ayah the first time every verse in a surah is memorised.
-- After that completion, changing an ayah away from memorised subtracts its star; marking it memorised again restores the star.
-- Individual ayahs and repetitions update progress but never award stars.
+- One star per ayah, awarded as soon as that ayah is marked memorised (not only once the whole surah is complete).
+- Changing an ayah away from memorised subtracts its star; marking it memorised again restores the star.
+- Repetitions update progress but never award stars.
 - Practice streaks count distinct local calendar days with a completed session.
-- Ending a streak never removes stars, badges, or mastered progress.
+- Ending a streak never removes stars or mastered progress, and streak badges are never revoked.
 
 Initial badges cover:
 
@@ -245,6 +245,8 @@ Initial badges cover:
 - Ten, fifty, and one hundred memorised ayahs.
 - First completed surah.
 - One, five, and ten cumulative practice hours.
+
+Badges other than streak badges track their underlying metric: if a completed surah later becomes incomplete (an ayah is un-memorised), the "first completed surah" badge is revoked, and it is re-awarded once the surah is memorised again.
 
 Reward events use unique semantic keys such as `memorised-milestone:PROFILE:THRESHOLD`. Repeated requests, retries, status toggling, or session updates cannot award the same one-time reward twice.
 
