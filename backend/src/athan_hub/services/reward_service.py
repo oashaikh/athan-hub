@@ -33,10 +33,11 @@ MEMORISATION_MILESTONES = {
 
 SIGNIFICANT_REWARD_CATEGORIES = {"daily_practice", "memorisation_milestone", "surah"}
 
-# Streak badges are earned once and kept even after the streak ends; every other
-# badge tracks its underlying metric and is revoked if that metric drops back
-# below the threshold (e.g. un-memorising an ayah from a completed surah).
-STICKY_METRICS = {"streak"}
+# Only the surah-completion metric is revocable: a completed surah can become
+# incomplete again (un-memorising an ayah), so "first_surah" tracks it live.
+# Every other badge, once earned, is kept permanently, matching the milestone
+# stars they pair with, which are also never revoked.
+REVOCABLE_METRICS = {"surahs"}
 
 
 @lru_cache(maxsize=1)
@@ -167,7 +168,7 @@ def evaluate_badges(db: Session, profile_id: int) -> None:
         if badge_key not in existing and earned:
             db.add(models.ProfileBadge(profile_id=profile_id, badge_key=badge_key, awarded_at=_now()))
             changed = True
-        elif badge_key in existing and not earned and metric not in STICKY_METRICS:
+        elif badge_key in existing and not earned and metric in REVOCABLE_METRICS:
             db.query(models.ProfileBadge).filter_by(profile_id=profile_id, badge_key=badge_key).delete()
             changed = True
     if not changed:

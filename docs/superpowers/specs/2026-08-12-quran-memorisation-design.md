@@ -246,7 +246,7 @@ Initial badges cover:
 - First completed surah.
 - One, five, and ten cumulative practice hours.
 
-Badges other than streak badges track their underlying metric: if a completed surah later becomes incomplete (an ayah is un-memorised), the "first completed surah" badge is revoked, and it is re-awarded once the surah is memorised again.
+All badges are earned once and kept permanently, except the "first completed surah" badge, which tracks surah completion live: if a completed surah later becomes incomplete (an ayah is un-memorised), the badge is revoked, and it is re-awarded once the surah is memorised again.
 
 Reward events use unique semantic keys such as `memorised-milestone:PROFILE:THRESHOLD`. Repeated requests, retries, status toggling, or session updates cannot award the same one-time reward twice.
 

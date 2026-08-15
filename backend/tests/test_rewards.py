@@ -190,6 +190,28 @@ def test_first_surah_badge_is_revoked_when_surah_no_longer_complete():
         assert "first_surah" in rewards["badges"]
 
 
+def test_ayahs_10_badge_is_retained_when_memorised_count_drops_below_threshold():
+    init_db()
+    with TestClient(app) as client:
+        profile = client.post("/api/admin/profiles", json={"name": f"Milestone {uuid.uuid4().hex[:6]}"}).json()
+        for ayah in range(1, 11):
+            response = client.put(
+                f"/api/quran/profiles/{profile['id']}/progress/2:{ayah}",
+                json={"state": "memorised", "completed_repetitions": 10},
+            )
+            assert response.status_code == 200
+        rewards = client.get(f"/api/quran/profiles/{profile['id']}/rewards").json()
+        assert "ayahs_10" in rewards["badges"]
+
+        unmarked = client.put(
+            f"/api/quran/profiles/{profile['id']}/progress/2:10",
+            json={"state": "needs_practice", "completed_repetitions": 10},
+        )
+        assert unmarked.status_code == 200
+        rewards = client.get(f"/api/quran/profiles/{profile['id']}/rewards").json()
+        assert "ayahs_10" in rewards["badges"]
+
+
 def test_leaderboard_disabled_returns_hidden():
     init_db()
     with TestClient(app) as client:
