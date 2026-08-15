@@ -585,6 +585,7 @@ input[type='time']::-webkit-calendar-picker-indicator { filter: invert(1) bright
 .mastery-controls { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 15px; opacity: .65; }
 .mastery-controls button,.reveal { padding: 6px 10px; border: 1px solid color-mix(in srgb,var(--quran-ink) 12%, transparent); border-radius: 8px; background: transparent; color: var(--quran-muted); font-size: .65rem; cursor: pointer; }
 .verse.memorised { border-left: 2px solid var(--quran-live); }.verse.needs_practice { border-left: 2px solid var(--quran-accent); }
+.verse.playing { background: color-mix(in srgb,var(--quran-accent) 12%, transparent); box-shadow: inset 3px 0 0 var(--quran-accent); }.verse.playing .verse-number { background: var(--quran-accent); color: var(--quran-bg); }
 .quran-player { position: absolute; z-index: 3; right: 28px; bottom: 24px; left: 28px; display: grid; grid-template-columns: auto 1fr auto auto; align-items: center; gap: 14px; padding: 13px; border: 1px solid color-mix(in srgb,var(--quran-accent) 35%, transparent); border-radius: 18px; background: color-mix(in srgb,var(--quran-bg) 90%, transparent); box-shadow: 0 16px 50px rgba(0,0,0,.28); backdrop-filter: blur(18px); }
 .verse-reader { position: relative; }
 .player-button { display:flex;align-items:center;gap:5px;padding:9px 13px;border:0;border-radius:11px;background:var(--quran-accent);color:var(--quran-bg);font-weight:750; }
