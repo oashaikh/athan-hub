@@ -204,20 +204,12 @@ def update_progress(
     db.commit()
     from . import reward_service
 
-    surah_count = next(item["ayah_count"] for item in resources().list_surahs() if item["id"] == surah_id)
     memorised_count = db.query(models.QuranProgress).filter(
         models.QuranProgress.profile_id == profile_id,
         models.QuranProgress.verse_key.like(f"{surah_id}:%"),
         models.QuranProgress.state == "memorised",
     ).count()
-    reward_service.reward_progress(
-        db,
-        profile_id,
-        verse_key,
-        payload.state,
-        memorised_count,
-        surah_count,
-    )
+    reward_service.reward_progress(db, profile_id, verse_key, memorised_count)
     return {
         "verse_key": row.verse_key,
         "state": row.state,
