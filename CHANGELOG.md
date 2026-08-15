@@ -11,6 +11,7 @@
 - Refined stars into meaningful milestones: daily practice, completed surahs, and 10/50/100-ayah memorisation achievements; individual ayahs and repetitions no longer award stars. A completed surah awards one star per ayah.
 - Added an accessible fullscreen control to the public header, including an exit state and graceful browser support detection.
 - Made earned surah stars reversible: changing a completed surah's ayah away from Memorised removes one star, and restoring it restores the star.
+- Surah stars now award as soon as each ayah is marked Memorised instead of waiting for the whole surah, and the "First completed surah" badge is revoked if a completed surah later becomes incomplete.
 
 ## 1.0.0
 
