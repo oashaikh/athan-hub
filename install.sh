@@ -240,15 +240,19 @@ chown -R root:"$SERVICE_USER" "$INSTALL_ROOT/resources/quran"
 find "$INSTALL_ROOT/resources/quran" -type d -exec chmod 0550 {} +
 find "$INSTALL_ROOT/resources/quran" -type f -exec chmod 0440 {} +
 
-log "Starting the headless audio session"
-loginctl enable-linger "$SERVICE_USER" || true
-systemctl start "user@${SERVICE_UID}.service"
-user_bus="unix:path=/run/user/${SERVICE_UID}/bus"
-if [[ "$AUDIO_BACKEND" == "pipewire" ]]; then
-  runuser -u "$SERVICE_USER" -- env XDG_RUNTIME_DIR="/run/user/${SERVICE_UID}" DBUS_SESSION_BUS_ADDRESS="$user_bus" \
-    systemctl --user enable --now pipewire.service pipewire-pulse.service wireplumber.service
+if [[ "$INSTALL_SYSTEM_PACKAGES" == true ]]; then
+  log "Starting the headless audio session"
+  loginctl enable-linger "$SERVICE_USER" || true
+  systemctl start "user@${SERVICE_UID}.service"
+  user_bus="unix:path=/run/user/${SERVICE_UID}/bus"
+  if [[ "$AUDIO_BACKEND" == "pipewire" ]]; then
+    runuser -u "$SERVICE_USER" -- env XDG_RUNTIME_DIR="/run/user/${SERVICE_UID}" DBUS_SESSION_BUS_ADDRESS="$user_bus" \
+      systemctl --user enable --now pipewire.service pipewire-pulse.service wireplumber.service
+  else
+    runuser -u "$SERVICE_USER" -- env XDG_RUNTIME_DIR="/run/user/${SERVICE_UID}" pulseaudio --start || true
+  fi
 else
-  runuser -u "$SERVICE_USER" -- env XDG_RUNTIME_DIR="/run/user/${SERVICE_UID}" pulseaudio --start || true
+  log "Reusing the existing headless audio session"
 fi
 
 log "Installing system services and web server"
