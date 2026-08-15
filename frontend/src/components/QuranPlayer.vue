@@ -20,7 +20,7 @@ import { computed, nextTick, ref, watch } from 'vue'
 import api from '../api'
 
 const props = defineProps<{ profileId: number; recitation: any; verses: any[]; repetitions: number; playbackSpeed: number }>()
-const emit = defineEmits<{ 'playback-started': []; 'repetition-complete': [verseKey: string]; 'range-complete': []; 'playback-error': [message: string] }>()
+const emit = defineEmits<{ 'playback-started': []; 'repetition-complete': [verseKey: string]; 'range-complete': []; 'playback-error': [message: string]; 'verse-highlight': [verseKey: string | null] }>()
 const audio = ref<HTMLAudioElement | null>(null)
 const verseIndex = ref(0)
 const repeatIndex = ref(1)
@@ -30,6 +30,8 @@ const segmentEnding = ref(false)
 const audioError = ref('')
 const started = ref(false)
 const current = computed(() => props.verses[verseIndex.value])
+const highlightedVerse = computed(() => (playing.value && current.value && props.recitation?.capability !== 'surah') ? current.value.verse_key : null)
+watch(highlightedVerse, value => emit('verse-highlight', value))
 const source = computed(() => {
   if (!current.value || !props.recitation) return ''
   const query = new URLSearchParams({ surah_id: String(current.value.surah_id) })

@@ -21,7 +21,7 @@
         <div v-if="error" class="reader-error" role="status"><span class="material-icons">error_outline</span><span>{{ error }}</span><button type="button" @click="retry">Retry</button></div>
         <div v-if="loading" class="reader-message">Loading verses…</div>
         <div v-else class="verse-list">
-          <article v-for="verse in selectedVerses" :key="verse.verse_key" class="verse" :class="progressState(verse.verse_key)">
+          <article v-for="verse in selectedVerses" :key="verse.verse_key" class="verse" :class="[progressState(verse.verse_key), { playing: verse.verse_key === highlightedVerse }]">
             <span class="verse-number">{{ verse.ayah_number }}</span>
             <p v-if="profile.show_arabic && (!profile.recall_mode || (listenCounts[verse.verse_key] || 0) < profile.repetitions || revealed.has(verse.verse_key))" class="arabic" dir="rtl">{{ verse.arabic }}</p>
             <button v-else-if="profile.show_arabic" type="button" class="reveal" @click="revealed.add(verse.verse_key)">Reveal Arabic</button>
@@ -34,7 +34,7 @@
             </div>
           </article>
         </div>
-        <QuranPlayer v-if="recitation && selectedVerses.length" :profile-id="profile.id" :recitation="recitation" :verses="selectedVerses" :repetitions="profile.repetitions" :playback-speed="profile.playback_speed" @playback-started="startSession" @repetition-complete="repetition" @range-complete="completeSession" @playback-error="showError" />
+        <QuranPlayer v-if="recitation && selectedVerses.length" :profile-id="profile.id" :recitation="recitation" :verses="selectedVerses" :repetitions="profile.repetitions" :playback-speed="profile.playback_speed" @playback-started="startSession" @repetition-complete="repetition" @range-complete="completeSession" @playback-error="showError" @verse-highlight="key => highlightedVerse = key" />
       </section>
 
       <aside class="practice-panel" :class="{ 'mobile-open': practiceOpen }">
@@ -59,7 +59,7 @@ import QuranPlayer from '../components/QuranPlayer.vue'
 import RewardSummary from '../components/RewardSummary.vue'
 import { useProfileStore } from '../stores/profile'
 
-const store = useProfileStore(), surahs = ref<any[]>([]), recitations = ref<any[]>([]), verses = ref<any[]>([]), rewards = ref<any>(null), leaderboard = ref<any>(null), search = ref(''), loading = ref(true), error = ref(''), revealed = reactive(new Set<string>()), listenCounts = reactive<Record<string,number>>({}), progress = ref<any[]>([]), sessionId = ref<number | null>(null), sessionRepetitions = ref(0), surahOpen = ref(false), practiceOpen = ref(false)
+const store = useProfileStore(), surahs = ref<any[]>([]), recitations = ref<any[]>([]), verses = ref<any[]>([]), rewards = ref<any>(null), leaderboard = ref<any>(null), search = ref(''), loading = ref(true), error = ref(''), revealed = reactive(new Set<string>()), listenCounts = reactive<Record<string,number>>({}), progress = ref<any[]>([]), sessionId = ref<number | null>(null), sessionRepetitions = ref(0), surahOpen = ref(false), practiceOpen = ref(false), highlightedVerse = ref<string | null>(null)
 let sessionStartedAt = 0
 let repetitionQueue: Promise<void> = Promise.resolve()
 let initialising = true
