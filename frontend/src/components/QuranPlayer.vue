@@ -30,7 +30,7 @@ const segmentEnding = ref(false)
 const audioError = ref('')
 const started = ref(false)
 const current = computed(() => props.verses[verseIndex.value])
-const highlightedVerse = computed(() => (playing.value && current.value) ? current.value.verse_key : null)
+const highlightedVerse = computed(() => (playing.value && current.value && props.recitation?.capability !== 'surah') ? current.value.verse_key : null)
 watch(highlightedVerse, value => emit('verse-highlight', value))
 const source = computed(() => {
   if (!current.value || !props.recitation) return ''

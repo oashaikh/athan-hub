@@ -36,4 +36,12 @@ describe('QuranPlayer', () => {
     await wrapper.get('audio').trigger('pause')
     expect(wrapper.emitted('verse-highlight')?.at(-1)).toEqual([null])
   })
+
+  it('does not highlight a verse for whole-surah recordings', async () => {
+    const wrapper = mount(QuranPlayer, {
+      props: { profileId: 1, recitation: { id: 200046, capability: 'surah' }, verses, repetitions: 1, playbackSpeed: 1 }
+    })
+    await wrapper.get('audio').trigger('play')
+    expect(wrapper.emitted('verse-highlight')?.at(-1) ?? [null]).toEqual([null])
+  })
 })
