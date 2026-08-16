@@ -56,3 +56,27 @@
   - [x] shellcheck install.sh uninstall.sh deploy/backup.sh deploy/doctor.sh deploy/pair-speaker.sh deploy/update.sh passes unchanged
   - Risk: frontend/dist is a large generated tree; only commit the files vite actually changes, don't hand-edit dist.
   - Commit: `1ee97345abf8`
+
+- [x] **Task 5: Fix: address review findings (cycle 1)** (after 4)
+  - Intent: Review verdict: NEEDS_WORK — **correctness** — APPROVED
+
+Correctness-only review: juzForSurah/groupSurahsByJuz logic verified by hand against known Juz boundaries (surah 1, 2, 3, 4, 9, 15, 114) — all correct, single-pass grouping under the surah's starting Juz. QuranPractice.vue sidebar integration preserves existing selectSurah/active-state/search behavior, only wraps rendering in Juz groups. Tests cover heading order and hidden-empty-group-on-search cases. This lens found nothing.
+
+**cascading-impact** — APPROVED
+
+Cascading-impact lens: no downstream breakage found. groupSurahsByJuz is a new pure module; only consumer is QuranPractice.vue's new juzGroups computed. selectSurah, active-class check, filteredSurahs signatures untouched, no other caller in the file duplicates the old flat-list logic left unfixed. No other file in repo references quranJuz.ts or the surah-rail markup.
+
+**plan-faithfulness** — APPROVED
+
+Plan-faithfulness lens found nothing to block. Diff isolated to ATH-5 scope: frontend/src/quranJuz.ts (30-Juz boundary table + groupSurahsByJuz), QuranPractice.vue sidebar nav wiring, additive bulma.scss rule, dist rebuild, and new/relocated Juz tests. Isolating true ATH-5 diff via `git diff 5b01929..fd7d46c` (pre-merge branch tip) confirms no backend, auth, playback, or reward files touched by this ticket's own commits — the backend/QuranPlayer/reward files appearing in a naive dev-branch diff are stale-local-dev artifacts from already-merged ATH-1..ATH-4, not new ATH-5 work. Checked a suspicious lead: the ATH-4 auto-center feature (verseEls/setVerseEl/scrollIntoView) and its regression test at components/__tests__/QuranPractice.test.ts both survive intact in the final merge commit f25d812 — false alarm, not a regression.
+
+**ux-accessibility** — NEEDS_WORK
+
+Juz grouping in sidebar works and mostly preserves existing accessibility patterns (touch targets, contrast tokens, keyboard reach unchanged), but two lens-scoped gaps found: mobile horizontal-scroll nav layout not adapted for the new group headers, and group labels aren't exposed as programmatic headings for screen-reader users.
+- [medium] [ux-accessibility] Mobile horizontal nav not adapted for Juz group headers (frontend/src/styles/bulma.scss:608)
+  Existing mobile rule `.surah-rail nav{display:flex;...overflow-x:auto}` (unchanged by this diff, line 608) turns the surah list into a horizontally scrolling row of buttons. The new `.juz-heading` <p> elements (QuranPractice.vue) are inserted into that same flex flow with no mobile-specific handling, so on phones the 'Juz N' labels become inline items interleaved with surah buttons in a horizontal scroll strip instead of a clear section break. This muddles the visual grouping the ticket asked for, specifically on the mobile breakpoint.
+  Required action: Add a mobile rule (e.g. flex-basis:100% or display:block on .juz-heading inside the max-width:720px query) so group labels break the row instead of sitting inline with buttons.
+- [low] [ux-accessibility] Juz group labels aren't exposed as headings for screen readers (frontend/src/pages/QuranPractice.vue:12)
+  `<p class="juz-heading">Juz {{ group.juz }}</p>` is plain text, not a heading (h3) or aria-labelledby'd group. Sighted users see the visual section break; screen-reader users navigating the `nav aria-label="Surahs"` region by headings or landmarks get no equivalent grouping cue — the whole list still reads as one flat sequence of buttons with occasional unannounced text nodes.
+  Required action: Use a heading element (e.g. h3) or wrap each group in a labelled region/group role so assistive tech exposes the same grouping sighted users get.
+  - Commit: `9f09a38c19a7`
