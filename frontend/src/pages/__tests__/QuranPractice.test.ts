@@ -65,6 +65,13 @@ describe('QuranPractice surah rail', () => {
     expect(headings).toEqual(['Juz 1', 'Juz 30'])
   })
 
+  it('renders Juz headings as h3 elements for screen-reader navigation', async () => {
+    const wrapper = await mountPage()
+    const nav = wrapper.get('.surah-rail nav')
+    const headings = nav.findAll('h3.juz-heading').map(node => node.text())
+    expect(headings).toEqual(['Juz 1', 'Juz 30'])
+  })
+
   it('hides a Juz group whose surahs are all filtered out by search', async () => {
     const wrapper = await mountPage()
     await wrapper.get('input[type="search"]').setValue('Naba')

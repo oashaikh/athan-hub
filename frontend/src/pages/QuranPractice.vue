@@ -11,7 +11,7 @@
         <input v-model="search" type="search" placeholder="Search 114 surahs" aria-label="Search surahs">
         <nav aria-label="Surahs">
           <template v-for="group in juzGroups" :key="group.juz">
-            <p class="juz-heading">Juz {{ group.juz }}</p>
+            <h3 class="juz-heading">Juz {{ group.juz }}</h3>
             <button v-for="surah in group.surahs" :key="surah.id" type="button" :class="{ active: surah.id === surahId }" @click="selectSurah(surah.id)">
               <span>{{ surah.id }}</span><strong>{{ surah.name_simple }}</strong><small>{{ surah.translated_name }}</small>
             </button>
