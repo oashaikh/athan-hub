@@ -570,6 +570,8 @@ input[type='time']::-webkit-calendar-picker-indicator { filter: invert(1) bright
 .surah-rail nav button strong { color: var(--quran-ink); font-size: .83rem; }
 .surah-rail nav button small { font-size: .68rem; }
 .surah-rail nav button.active { background: color-mix(in srgb,var(--quran-accent) 14%, transparent); }
+.surah-rail nav .juz-heading { margin: 14px 0 4px; padding: 0 9px; color: var(--quran-muted); font-size: .62rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; pointer-events: none; }
+.surah-rail nav .juz-heading:first-child { margin-top: 0; }
 .verse-reader { display: flex; overflow: hidden; flex-direction: column; }
 .verse-reader > header { display: flex; justify-content: space-between; align-items: center; padding: 24px 28px 18px; border-bottom: 1px solid color-mix(in srgb,var(--quran-ink) 9%, transparent); }
 .reward-summary { display: flex; gap: 14px; }
