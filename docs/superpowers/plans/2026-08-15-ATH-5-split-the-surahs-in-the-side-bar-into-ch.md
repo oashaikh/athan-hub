@@ -47,11 +47,12 @@
   - Risk: Low risk, additive CSS only.
   - Commit: `390be6906776`
 
-- [ ] **Task 4: Sync committed frontend/dist and run full project checks** (after 3)
+- [x] **Task 4: Sync committed frontend/dist and run full project checks** (after 3)
   - Intent: Repo principle: committed frontend/dist must stay in sync with frontend/src since the deployment target has no Node build step. Rebuild and re-commit dist, then run every project check to confirm nothing regressed.
   - Files: `frontend/dist/**`
-  - [ ] npm --prefix frontend run build run and its output copied into the committed frontend/dist so dist matches the new src
-  - [ ] npm --prefix frontend test passes
-  - [ ] backend/venv/bin/python -m pytest backend/tests passes unchanged (no backend files touched by this ticket)
-  - [ ] shellcheck install.sh uninstall.sh deploy/backup.sh deploy/doctor.sh deploy/pair-speaker.sh deploy/update.sh passes unchanged
+  - [x] npm --prefix frontend run build run and its output copied into the committed frontend/dist so dist matches the new src
+  - [x] npm --prefix frontend test passes
+  - [x] backend/venv/bin/python -m pytest backend/tests passes unchanged (no backend files touched by this ticket)
+  - [x] shellcheck install.sh uninstall.sh deploy/backup.sh deploy/doctor.sh deploy/pair-speaker.sh deploy/update.sh passes unchanged
   - Risk: frontend/dist is a large generated tree; only commit the files vite actually changes, don't hand-edit dist.
+  - Commit: `1ee97345abf8`
