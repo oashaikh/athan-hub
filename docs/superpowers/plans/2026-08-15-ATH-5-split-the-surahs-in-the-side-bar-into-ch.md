@@ -18,13 +18,14 @@
 
 ## Tasks
 
-- [ ] **Task 1: Add Juz grouping helper module with self-test**
+- [x] **Task 1: Add Juz grouping helper module with self-test**
   - Intent: Sidebar currently renders all 114 surahs as one flat button list in `.surah-rail nav` (frontend/src/pages/QuranPractice.vue:12-16). 'Chapters' here means the standard 30-Juz (Para) division used by Quran apps — the only grouping scheme the data actually supports, since backend/src/athan_hub/core/quran_resources.py's `surahs` table has only id/name_simple/name_arabic/translated_name/ayah_count (no juz or revelation_place column, confirmed via `sqlite3 resources/quran/quran.sqlite .schema surahs`). Add a static, well-known 30-entry Juz-start boundary table (surah id + ayah where each Juz begins — public factual data, no new dependency) and a pure `groupSurahsByJuz(surahs)` helper that buckets each surah under the Juz its first ayah falls in. Pure frontend, no backend/API change needed.
   - Files: `frontend/src/quranJuz.ts`, `frontend/src/quranJuz.test.ts`
-  - [ ] frontend/src/quranJuz.ts exports a 30-entry Juz boundary table and `groupSurahsByJuz(surahs: {id:number}[])` returning surahs bucketed in ascending Juz order, every input surah appearing exactly once
-  - [ ] frontend/src/quranJuz.test.ts asserts surah 1 (Al-Fatihah) is in Juz 1, surah 2 (Al-Baqarah) starts Juz 1 (not its own group), and a late surah (e.g. 114) lands in Juz 30
-  - [ ] `npm --prefix frontend test` passes including the new test file
+  - [x] frontend/src/quranJuz.ts exports a 30-entry Juz boundary table and `groupSurahsByJuz(surahs: {id:number}[])` returning surahs bucketed in ascending Juz order, every input surah appearing exactly once
+  - [x] frontend/src/quranJuz.test.ts asserts surah 1 (Al-Fatihah) is in Juz 1, surah 2 (Al-Baqarah) starts Juz 1 (not its own group), and a late surah (e.g. 114) lands in Juz 30
+  - [x] `npm --prefix frontend test` passes including the new test file
   - Risk: Juz boundaries are fixed, universally-agreed values (not user data or copyrighted text) — safe to hardcode. Grouping a surah under the Juz where it starts (not every Juz it spans) is the convention other Quran apps use for a surah-list view; call this out to the user as the assumption if they expected something else.
+  - Commit: (none — no code change for this task)
 
 - [ ] **Task 2: Group the sidebar surah list by Juz with section headers** (after 1)
   - Intent: Wire the new helper into the sidebar so `.surah-rail nav` in frontend/src/pages/QuranPractice.vue renders a 'Juz N' header above each group instead of one flat list, while keeping current search/select/active/keyboard behaviour identical (`filteredSurahs`, `selectSurah`, `surah.id === surahId` active state all still work per-button).
