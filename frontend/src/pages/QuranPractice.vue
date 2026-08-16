@@ -10,9 +10,12 @@
         <div class="rail-heading"><p class="section-kicker">The Quran</p><h1>Choose a surah</h1></div>
         <input v-model="search" type="search" placeholder="Search 114 surahs" aria-label="Search surahs">
         <nav aria-label="Surahs">
-          <button v-for="surah in filteredSurahs" :key="surah.id" type="button" :class="{ active: surah.id === surahId }" @click="selectSurah(surah.id)">
-            <span>{{ surah.id }}</span><strong>{{ surah.name_simple }}</strong><small>{{ surah.translated_name }}</small>
-          </button>
+          <template v-for="group in juzGroups" :key="group.juz">
+            <p class="juz-heading">Juz {{ group.juz }}</p>
+            <button v-for="surah in group.surahs" :key="surah.id" type="button" :class="{ active: surah.id === surahId }" @click="selectSurah(surah.id)">
+              <span>{{ surah.id }}</span><strong>{{ surah.name_simple }}</strong><small>{{ surah.translated_name }}</small>
+            </button>
+          </template>
         </nav>
       </aside>
 
@@ -58,6 +61,7 @@ import ChildHeader from '../components/ChildHeader.vue'
 import QuranPlayer from '../components/QuranPlayer.vue'
 import RewardSummary from '../components/RewardSummary.vue'
 import { useProfileStore } from '../stores/profile'
+import { groupSurahsByJuz } from '../quranJuz'
 
 const store = useProfileStore(), surahs = ref<any[]>([]), recitations = ref<any[]>([]), verses = ref<any[]>([]), rewards = ref<any>(null), leaderboard = ref<any>(null), search = ref(''), loading = ref(true), error = ref(''), revealed = reactive(new Set<string>()), listenCounts = reactive<Record<string,number>>({}), progress = ref<any[]>([]), sessionId = ref<number | null>(null), sessionRepetitions = ref(0), surahOpen = ref(false), practiceOpen = ref(false), highlightedVerse = ref<string | null>(null)
 let sessionStartedAt = 0
@@ -66,6 +70,7 @@ let initialising = true
 const profile = computed(() => store.selected.value), surahId = ref(1)
 const selectedSurah = computed(() => surahs.value.find(row => row.id === surahId.value))
 const filteredSurahs = computed(() => surahs.value.filter(row => `${row.name_simple} ${row.translated_name}`.toLowerCase().includes(search.value.toLowerCase())))
+const juzGroups = computed(() => groupSurahsByJuz(filteredSurahs.value))
 const selectedVerses = computed(() => verses.value.filter(row => !profile.value || (row.ayah_number >= profile.value.start_ayah && row.ayah_number <= profile.value.end_ayah)))
 const recitation = computed(() => recitations.value.find(row => row.id === profile.value?.preferred_recitation_id) || recitations.value[0])
 const capabilityLabel = (row: any) => row.capability === 'ayah' ? 'Verse audio' : row.capability === 'segmented_surah' ? 'Timed surah' : 'Whole surah'
