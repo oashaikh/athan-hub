@@ -38,13 +38,14 @@
   - Risk: Keep the change scoped to the nav markup/script — do not touch verse-reader or practice-panel sections in the same file.
   - Commit: `1d7c96a038d2`
 
-- [ ] **Task 3: Style the Juz group headers** (after 2)
+- [x] **Task 3: Style the Juz group headers** (after 2)
   - Intent: The new group headers need visual treatment consistent with the existing `.surah-rail` panel (see frontend/src/styles/bulma.scss:562-572 for the panel's existing look: muted ink colors, quran-accent highlights, compact spacing). Add a small, scoped CSS rule for the group heading so it reads as a section label, not another surah button.
   - Files: `frontend/src/styles/bulma.scss`
-  - [ ] new selector (e.g. .surah-rail nav h3 or the exact class used in task 2) is added near the existing surah-rail rules (bulma.scss:562-572), using the same --quran-* CSS custom properties for colors rather than hardcoded values
-  - [ ] no existing .surah-rail selectors are modified or removed
-  - [ ] visually distinct from surah buttons (smaller, muted, non-interactive) when checked with npm --prefix frontend run dev or by reading the rendered output
+  - [x] new selector (e.g. .surah-rail nav h3 or the exact class used in task 2) is added near the existing surah-rail rules (bulma.scss:562-572), using the same --quran-* CSS custom properties for colors rather than hardcoded values
+  - [x] no existing .surah-rail selectors are modified or removed
+  - [x] visually distinct from surah buttons (smaller, muted, non-interactive) when checked with npm --prefix frontend run dev or by reading the rendered output
   - Risk: Low risk, additive CSS only.
+  - Commit: `390be6906776`
 
 - [ ] **Task 4: Sync committed frontend/dist and run full project checks** (after 3)
   - Intent: Repo principle: committed frontend/dist must stay in sync with frontend/src since the deployment target has no Node build step. Rebuild and re-commit dist, then run every project check to confirm nothing regressed.
