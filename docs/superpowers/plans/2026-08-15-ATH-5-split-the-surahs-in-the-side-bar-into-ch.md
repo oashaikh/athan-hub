@@ -27,15 +27,16 @@
   - Risk: Juz boundaries are fixed, universally-agreed values (not user data or copyrighted text) — safe to hardcode. Grouping a surah under the Juz where it starts (not every Juz it spans) is the convention other Quran apps use for a surah-list view; call this out to the user as the assumption if they expected something else.
   - Commit: (none — no code change for this task)
 
-- [ ] **Task 2: Group the sidebar surah list by Juz with section headers** (after 1)
+- [x] **Task 2: Group the sidebar surah list by Juz with section headers** (after 1)
   - Intent: Wire the new helper into the sidebar so `.surah-rail nav` in frontend/src/pages/QuranPractice.vue renders a 'Juz N' header above each group instead of one flat list, while keeping current search/select/active/keyboard behaviour identical (`filteredSurahs`, `selectSurah`, `surah.id === surahId` active state all still work per-button).
   - Files: `frontend/src/pages/QuranPractice.vue`
-  - [ ] surah-rail nav renders a group heading per non-empty Juz bucket, in Juz order, using groupSurahsByJuz(filteredSurahs.value)
-  - [ ] searching (the existing search input) still filters surahs and hides any Juz group left with zero matches
-  - [ ] clicking a surah button still calls selectSurah(id) and closes the mobile panel exactly as before
-  - [ ] the currently selected surah's button still gets the active class
-  - [ ] `npm --prefix frontend run build` (vue-tsc + vite build) succeeds with no new type errors
+  - [x] surah-rail nav renders a group heading per non-empty Juz bucket, in Juz order, using groupSurahsByJuz(filteredSurahs.value)
+  - [x] searching (the existing search input) still filters surahs and hides any Juz group left with zero matches
+  - [x] clicking a surah button still calls selectSurah(id) and closes the mobile panel exactly as before
+  - [x] the currently selected surah's button still gets the active class
+  - [x] `npm --prefix frontend run build` (vue-tsc + vite build) succeeds with no new type errors
   - Risk: Keep the change scoped to the nav markup/script — do not touch verse-reader or practice-panel sections in the same file.
+  - Commit: `1d7c96a038d2`
 
 - [ ] **Task 3: Style the Juz group headers** (after 2)
   - Intent: The new group headers need visual treatment consistent with the existing `.surah-rail` panel (see frontend/src/styles/bulma.scss:562-572 for the panel's existing look: muted ink colors, quran-accent highlights, compact spacing). Add a small, scoped CSS rule for the group heading so it reads as a section label, not another surah button.
