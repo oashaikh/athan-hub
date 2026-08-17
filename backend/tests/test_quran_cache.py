@@ -150,6 +150,18 @@ def test_segment_manifest_uses_internal_source_id(monkeypatch):
     assert result["segments"]["1:1"]["time_to"] == 4200
 
 
+def test_segment_manifest_available_for_capability_surah(monkeypatch):
+    payload = b'{"audio":{"url":"https://allowed.test/001.mp3"},"segments":{"1:1":{"time_from":0,"time_to":2318,"segments":[[1,0,630]]}}}'
+    monkeypatch.setattr("urllib.request.urlopen", lambda request, timeout=0: FakeResponse(request.full_url, payload))
+    result = segment_manifest({"source_kind": "surah", "source_id": 8, "capability": "surah"}, 1, 1, 1)
+    assert result["segments"]["1:1"]["segments"] == [[1, 0, 630]]
+
+
+def test_segment_manifest_rejects_ayah_source(monkeypatch):
+    with pytest.raises(CacheSourceError, match="verse timing"):
+        segment_manifest({"source_kind": "ayah", "source_id": 5, "capability": "ayah"}, 1, 1, 1)
+
+
 def test_segment_manifest_is_available_offline_after_first_fetch(monkeypatch, tmp_path):
     payload = b'{"audio":{"url":"https://allowed.test/001.mp3"},"segments":{"1:1":{"time_from":0,"time_to":4200}}}'
     calls = []

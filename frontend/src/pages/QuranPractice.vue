@@ -62,8 +62,9 @@ import QuranPlayer from '../components/QuranPlayer.vue'
 import RewardSummary from '../components/RewardSummary.vue'
 import { useProfileStore } from '../stores/profile'
 import { groupSurahsByJuz } from '../quranJuz'
+import { prefersReducedMotion } from '../motion'
 
-const store = useProfileStore(), surahs = ref<any[]>([]), recitations = ref<any[]>([]), verses = ref<any[]>([]), rewards = ref<any>(null), leaderboard = ref<any>(null), search = ref(''), loading = ref(true), error = ref(''), revealed = reactive(new Set<string>()), listenCounts = reactive<Record<string,number>>({}), progress = ref<any[]>([]), sessionId = ref<number | null>(null), sessionRepetitions = ref(0), surahOpen = ref(false), practiceOpen = ref(false), highlightedVerse = ref<string | null>(null), wordProgress = ref<{ verseKey: string; fraction: number } | null>(null)
+const store = useProfileStore(), surahs = ref<any[]>([]), recitations = ref<any[]>([]), verses = ref<any[]>([]), rewards = ref<any>(null), leaderboard = ref<any>(null), search = ref(''), loading = ref(true), error = ref(''), revealed = reactive(new Set<string>()), listenCounts = reactive<Record<string,number>>({}), progress = ref<any[]>([]), sessionId = ref<number | null>(null), sessionRepetitions = ref(0), surahOpen = ref(false), practiceOpen = ref(false), highlightedVerse = ref<string | null>(null), wordProgress = ref<{ verseKey: string; fraction?: number; wordIndex?: number } | null>(null)
 let sessionStartedAt = 0
 let repetitionQueue: Promise<void> = Promise.resolve()
 let initialising = true
@@ -81,7 +82,8 @@ const arabicWords = (arabic: string) => arabic.split(/\s+/).filter(Boolean)
 const activeWordIndex = (verse: any) => {
   const words = arabicWords(verse.arabic), currentProgress = wordProgress.value
   if (!words.length || !currentProgress || verse.verse_key !== highlightedVerse.value || currentProgress.verseKey !== verse.verse_key) return -1
-  return Math.min(words.length - 1, Math.max(0, Math.floor(currentProgress.fraction * words.length)))
+  const index = currentProgress.wordIndex ?? Math.floor((currentProgress.fraction ?? 0) * words.length)
+  return Math.min(words.length - 1, Math.max(0, index))
 }
 const message = (caught:any, fallback:string) => caught?.response?.status === 507 ? 'The Quran audio cache is full. Ask an admin to free space or raise its limit.' : caught?.response?.data?.detail || fallback
 const showError = (value:string) => { error.value = value }
@@ -97,7 +99,7 @@ const completeSession = async () => { if (!profile.value || !sessionId.value) re
 const verseEls = reactive<Record<string, Element>>({})
 const setVerseEl = (key: string, el: Element | { $el: Element } | null) => { if (el) verseEls[key] = el instanceof Element ? el : el.$el }
 const retry = () => loadVerses(false)
-watch(highlightedVerse, async key => { if (!key) return; await nextTick(); verseEls[key]?.scrollIntoView({ behavior: 'smooth', block: 'center' }) })
+watch(highlightedVerse, async key => { if (!key) return; await nextTick(); verseEls[key]?.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'center' }) })
 watch(surahId, () => { if (!initialising) loadVerses(true) })
 watch(profile, async (value, oldValue) => { if (!initialising && value && value.id !== oldValue?.id) { initialising = true; surahId.value = value.last_surah_id; await loadProfile(); await loadVerses(false); initialising = false } })
 onMounted(async () => { try { await Promise.all([store.load(), api.get('/quran/surahs').then(r => surahs.value = r.data), api.get('/quran/recitations').then(r => recitations.value = r.data)]); if (profile.value) { surahId.value = profile.value.last_surah_id; await loadProfile(); await loadVerses(false) } else loading.value = false } catch (caught) { error.value = message(caught, 'Quran practice could not be loaded.'); loading.value = false } finally { initialising = false } })

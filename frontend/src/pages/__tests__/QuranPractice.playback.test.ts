@@ -1,6 +1,6 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import QuranPractice from '../../pages/QuranPractice.vue'
+import QuranPractice from '../QuranPractice.vue'
 import api from '../../api'
 
 vi.mock('../../api', () => ({
@@ -46,6 +46,18 @@ describe('QuranPractice', () => {
 
     const playingVerse = wrapper.get('.verse.playing').element
     expect(playingVerse.scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'center' })
+  })
+
+  it('scrolls without a smooth animation when the user prefers reduced motion', async () => {
+    vi.spyOn(window, 'matchMedia').mockReturnValue({ matches: true } as MediaQueryList)
+    const wrapper = mount(QuranPractice, { global: { stubs: { ChildHeader: true, RewardSummary: true } } })
+    await flushPromises()
+
+    await wrapper.get('audio').trigger('play')
+    await flushPromises()
+
+    const playingVerse = wrapper.get('.verse.playing').element
+    expect(playingVerse.scrollIntoView).toHaveBeenCalledWith({ behavior: 'auto', block: 'center' })
   })
 
   it('highlights the word corresponding to the playback fraction', async () => {

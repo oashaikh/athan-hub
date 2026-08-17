@@ -54,7 +54,23 @@ describe('QuranPlayer', () => {
     expect(wrapper.emitted('word-progress')).toEqual([[{ verseKey: '1:1', fraction: 0.25 }]])
   })
 
-  it('emits segmented-surah word-progress from the current verse segment', async () => {
+  it('emits the exact active word index from real per-word segment timing, not a fraction guess', async () => {
+    vi.mocked(api.get).mockResolvedValueOnce({ data: { segments: { '1:1': { time_from: 1000, time_to: 5000, segments: [[1, 1000, 4000], [2, 4000, 4300], [3, 4300, 4600], [4, 4600, 5000]] } } } } as never)
+    const wrapper = mount(QuranPlayer, {
+      props: { profileId: 1, recitation: { id: 7, capability: 'segmented_surah' }, verses, repetitions: 1, playbackSpeed: 1 }
+    })
+    await flushPromises()
+    const audio = wrapper.get('audio').element as HTMLAudioElement
+    // 4.5s = 4500ms falls inside the short third word (4300-4600ms), even though it is 87.5% of the way through the verse's overall span
+    Object.defineProperty(audio, 'currentTime', { configurable: true, value: 4.5 })
+
+    await wrapper.get('audio').trigger('play')
+    await wrapper.get('audio').trigger('timeupdate')
+
+    expect(wrapper.emitted('word-progress')).toEqual([[{ verseKey: '1:1', wordIndex: 2 }]])
+  })
+
+  it('emits null word-progress for a segmented-surah verse without per-word timing data', async () => {
     vi.mocked(api.get).mockResolvedValueOnce({ data: { segments: { '1:1': { time_from: 1000, time_to: 5000 } } } } as never)
     const wrapper = mount(QuranPlayer, {
       props: { profileId: 1, recitation: { id: 7, capability: 'segmented_surah' }, verses, repetitions: 1, playbackSpeed: 1 }
@@ -66,18 +82,40 @@ describe('QuranPlayer', () => {
     await wrapper.get('audio').trigger('play')
     await wrapper.get('audio').trigger('timeupdate')
 
-    expect(wrapper.emitted('word-progress')).toEqual([[{ verseKey: '1:1', fraction: 0.25 }]])
+    expect(wrapper.emitted('word-progress')).toEqual([[null]])
   })
 
-  it('emits null word-progress for whole-surah recordings', async () => {
+  it('highlights the verse and exact word for whole-surah recordings when the recitation has verse timing data', async () => {
+    vi.mocked(api.get).mockResolvedValueOnce({ data: { segments: {
+      '1:1': { time_from: 0, time_to: 2000, segments: [[1, 0, 500], [2, 500, 2000]] },
+      '1:2': { time_from: 2000, time_to: 4000, segments: [[1, 2000, 4000]] }
+    } } } as never)
     const wrapper = mount(QuranPlayer, {
-      props: { profileId: 1, recitation: { id: 200046, capability: 'surah' }, verses, repetitions: 1, playbackSpeed: 1 }
+      props: { profileId: 1, recitation: { id: 200008, capability: 'surah' }, verses, repetitions: 1, playbackSpeed: 1 }
     })
+    await flushPromises()
+    const audio = wrapper.get('audio').element as HTMLAudioElement
+    Object.defineProperty(audio, 'currentTime', { configurable: true, value: 0.6 })
 
     await wrapper.get('audio').trigger('play')
     await wrapper.get('audio').trigger('timeupdate')
 
-    expect(wrapper.emitted('word-progress')).toEqual([[null]])
+    expect(wrapper.emitted('verse-highlight')?.at(-1)).toEqual(['1:1'])
+    expect(wrapper.emitted('word-progress')?.at(-1)).toEqual([{ verseKey: '1:1', wordIndex: 1 }])
+  })
+
+  it('does not highlight a whole-surah recording that has no verse timing data available', async () => {
+    vi.mocked(api.get).mockResolvedValueOnce({ data: { segments: {} } } as never)
+    const wrapper = mount(QuranPlayer, {
+      props: { profileId: 1, recitation: { id: 200046, capability: 'surah' }, verses, repetitions: 1, playbackSpeed: 1 }
+    })
+    await flushPromises()
+
+    await wrapper.get('audio').trigger('play')
+    await wrapper.get('audio').trigger('timeupdate')
+
+    expect(wrapper.emitted('verse-highlight')?.at(-1) ?? [null]).toEqual([null])
+    expect(wrapper.emitted('word-progress')?.at(-1)).toEqual([null])
   })
 
   it('clears word-progress on pause', async () => {
@@ -108,13 +146,5 @@ describe('QuranPlayer', () => {
     await wrapper.get('audio').trigger('ended')
 
     expect(wrapper.emitted('word-progress')?.at(-1)).toEqual([null])
-  })
-
-  it('does not highlight a verse for whole-surah recordings', async () => {
-    const wrapper = mount(QuranPlayer, {
-      props: { profileId: 1, recitation: { id: 200046, capability: 'surah' }, verses, repetitions: 1, playbackSpeed: 1 }
-    })
-    await wrapper.get('audio').trigger('play')
-    expect(wrapper.emitted('verse-highlight')?.at(-1) ?? [null]).toEqual([null])
   })
 })
