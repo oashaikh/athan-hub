@@ -41,9 +41,10 @@
   - Risk: Mark the fraction-based word estimate with a `ponytail:` comment noting it's a linear-interpolation approximation (real word durations vary), not a true per-word audio timestamp, since the committed segment contract only exposes verse-level time_from/time_to today.
   - Commit: `c0017c03d322`
 
-- [ ] **Task 3: Rebuild and commit the synchronized frontend production bundle** (after 1, 2)
+- [x] **Task 3: Rebuild and commit the synchronized frontend production bundle** (after 1, 2)
   - Intent: Repository convention requires frontend/dist stay in sync with frontend/src since the deployed appliance has no Node.js build step at runtime; regenerate it after the word-highlight UI change lands.
   - Files: `frontend/dist/**`
-  - [ ] npm --prefix frontend run build produces a dist reflecting tasks 1-2, committed alongside the src change
-  - [ ] dist diff contains only output affected by this feature (no unrelated churn)
-  - [ ] backend/venv/bin/python -m pytest backend/tests, npm --prefix frontend test, and the shellcheck lint remain green
+  - [x] npm --prefix frontend run build produces a dist reflecting tasks 1-2, committed alongside the src change
+  - [x] dist diff contains only output affected by this feature (no unrelated churn)
+  - [x] backend/venv/bin/python -m pytest backend/tests, npm --prefix frontend test, and the shellcheck lint remain green
+  - Commit: `290e500789bb`
