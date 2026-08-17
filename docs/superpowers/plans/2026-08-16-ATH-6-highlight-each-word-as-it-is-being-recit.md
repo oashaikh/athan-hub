@@ -30,15 +30,16 @@
   - Risk: jsdom's HTMLMediaElement.duration/currentTime are getter-only in real browsers; tests must override them per element instance the same way frontend/src/test/setup.ts already stubs play/pause/load. Guard divide-by-zero when duration or segment span is 0.
   - Commit: (none — no code change for this task)
 
-- [ ] **Task 2: Highlight the active word inside the rendered Arabic verse** (after 1)
+- [x] **Task 2: Highlight the active word inside the rendered Arabic verse** (after 1)
   - Intent: Consume @word-progress in QuranPractice.vue, split each verse's arabic field on whitespace into words, render them as spans, and mark the word at floor(fraction * words.length) active (clamped) only for the verse currently matching .verse.playing, using the existing --quran-accent theme color.
   - Files: `frontend/src/pages/QuranPractice.vue`, `frontend/src/components/__tests__/QuranPractice.test.ts`, `frontend/src/styles/bulma.scss`
-  - [ ] New test with a multi-word Arabic verse fixture: play + timeupdate marks the expected word span active and a different word is not active
-  - [ ] word-progress null (e.g. on pause) removes the active-word class from every word
-  - [ ] Existing 'scrolls the ayah being recited' test still passes unmodified
-  - [ ] Verses that are not the currently playing one never render an active word
-  - [ ] npm --prefix frontend test and npm --prefix frontend run build both succeed
+  - [x] New test with a multi-word Arabic verse fixture: play + timeupdate marks the expected word span active and a different word is not active
+  - [x] word-progress null (e.g. on pause) removes the active-word class from every word
+  - [x] Existing 'scrolls the ayah being recited' test still passes unmodified
+  - [x] Verses that are not the currently playing one never render an active word
+  - [x] npm --prefix frontend test and npm --prefix frontend run build both succeed
   - Risk: Mark the fraction-based word estimate with a `ponytail:` comment noting it's a linear-interpolation approximation (real word durations vary), not a true per-word audio timestamp, since the committed segment contract only exposes verse-level time_from/time_to today.
+  - Commit: `c0017c03d322`
 
 - [ ] **Task 3: Rebuild and commit the synchronized frontend production bundle** (after 1, 2)
   - Intent: Repository convention requires frontend/dist stay in sync with frontend/src since the deployed appliance has no Node.js build step at runtime; regenerate it after the word-highlight UI change lands.
