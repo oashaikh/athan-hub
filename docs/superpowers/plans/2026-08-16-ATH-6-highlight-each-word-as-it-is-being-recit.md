@@ -18,16 +18,17 @@
 
 ## Tasks
 
-- [ ] **Task 1: Emit per-word playback progress from QuranPlayer**
+- [x] **Task 1: Emit per-word playback progress from QuranPlayer**
   - Intent: Add a new `word-progress` emit ({verseKey, fraction}) computed purely from data QuranPlayer already has (audio.currentTime/duration for 'ayah'; segmentMap time_from/time_to for 'segmented_surah'), emitting null for 'surah' capability and whenever paused/ended, mirroring the existing verse-highlight null-on-pause pattern.
   - Files: `frontend/src/components/QuranPlayer.vue`, `frontend/src/components/__tests__/QuranPlayer.test.ts`
-  - [ ] Triggering timeupdate on a mocked 'ayah' recitation with overridden currentTime/duration emits word-progress with the expected fraction
-  - [ ] Triggering timeupdate on a mocked 'segmented_surah' recitation inside a segment window emits the expected fraction using the same time_from/time_to already loaded for auto-advance
-  - [ ] 'surah' capability never emits a non-null word-progress (matches existing verse-highlight restriction)
-  - [ ] Pausing emits word-progress null, same as the existing verse-highlight pause test
-  - [ ] npm --prefix frontend test passes including existing QuranPlayer tests
-  - [ ] No backend files touched, no new dependency added
+  - [x] Triggering timeupdate on a mocked 'ayah' recitation with overridden currentTime/duration emits word-progress with the expected fraction
+  - [x] Triggering timeupdate on a mocked 'segmented_surah' recitation inside a segment window emits the expected fraction using the same time_from/time_to already loaded for auto-advance
+  - [x] 'surah' capability never emits a non-null word-progress (matches existing verse-highlight restriction)
+  - [x] Pausing emits word-progress null, same as the existing verse-highlight pause test
+  - [x] npm --prefix frontend test passes including existing QuranPlayer tests
+  - [x] No backend files touched, no new dependency added
   - Risk: jsdom's HTMLMediaElement.duration/currentTime are getter-only in real browsers; tests must override them per element instance the same way frontend/src/test/setup.ts already stubs play/pause/load. Guard divide-by-zero when duration or segment span is 0.
+  - Commit: (none — no code change for this task)
 
 - [ ] **Task 2: Highlight the active word inside the rendered Arabic verse** (after 1)
   - Intent: Consume @word-progress in QuranPractice.vue, split each verse's arabic field on whitespace into words, render them as spans, and mark the word at floor(fraction * words.length) active (clamped) only for the verse currently matching .verse.playing, using the existing --quran-accent theme color.
