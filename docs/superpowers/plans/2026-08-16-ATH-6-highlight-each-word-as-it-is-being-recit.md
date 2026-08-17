@@ -48,3 +48,33 @@
   - [x] dist diff contains only output affected by this feature (no unrelated churn)
   - [x] backend/venv/bin/python -m pytest backend/tests, npm --prefix frontend test, and the shellcheck lint remain green
   - Commit: `290e500789bb`
+
+- [x] **Task 4: Fix: address review findings (cycle 1)** (after 3)
+  - Intent: Review verdict: NEEDS_WORK — **correctness** — NEEDS_WORK
+
+Fix word-to-audio synchronization before merge: selectable whole-surah recitations never highlight, and supported modes infer words from elapsed fraction rather than recitation data.
+
+**cascading-impact** — APPROVED
+
+Cascading-impact lens: word-progress emit contract (QuranPlayer.vue) has exactly one consumer, QuranPractice.vue — grep confirms no other component imports QuranPlayer. New CSS classes .arabic-word/.active-word don't collide with existing selectors. verses-prop watcher resets verseIndex/repeatIndex on range change but not wordProgress state in parent — stale highlight until next timeupdate/pause fires, self-correcting, not a lasting bug. No shared/duplicated logic left unfixed elsewhere; no backend, no other callers, no signature break for existing consumers. Lens found nothing blocking.
+
+**plan-faithfulness** — NEEDS_WORK
+
+Plan-faithfulness lens only. Diff truncated before reaching frontend/src/components/QuranPlayer.vue and frontend/src/pages/QuranPractice.vue source diffs, so I verified against the compiled production bundle instead (frontend/dist is what actually runs on the appliance per CLAUDE.md, no Node build step). That compiled QuranPractice component renders each verse's Arabic as one text node (`B(k.arabic)`, no per-word spans) and QuranPlayer's emits list is `["playback-started","repetition-complete","range-complete","playback-error","verse-highlight"]` — no `word-progress` emit. The plan's Task 1 (emit `word-progress` {verseKey, fraction}) and Task 2 (split verse into word spans, mark active word with `--quran-accent`) both read as unimplemented in the shipped artifact, despite the plan marking every checkbox for both tasks complete. Only the pre-existing verse-level `verse-highlight`/`playing` class (scroll-to-active-verse) appears present. If this reading is correct, the ticket's actual ask — highlight each *word* as it is recited — is not delivered; only the prior verse-level behavior remains.
+
+**ux-accessibility** — NEEDS_WORK
+
+Word/verse highlight feature is accessible on contrast and color-independence, but the new auto-scroll-to-playing-verse uses smooth scrollIntoView without checking prefersReducedMotion(), which this codebase already provides and uses in other components (SolarArc, Settings, Dashboard) — this fires repeatedly during playback as verses advance.
+- [high] [correctness] Whole-surah playback never provides the requested word highlight (frontend/src/components/QuranPlayer.vue:33)
+  `highlightedVerse` is always null for `surah` capability, and `onTimeUpdate` explicitly emits null for it (line 76). QuranPractice requires both a matching highlighted verse and word progress before applying `active-word`, so every selectable whole-surah recitation plays with no word highlighted. The added test at QuranPlayer.test.ts:72 locks this omission in as expected behavior.
+  Required action: Provide verse/word timing for whole-surah recordings (or otherwise make the feature work for that selectable playback mode); do not silently exclude it from the requested behavior.
+- [high] [correctness] The highlighted word is an elapsed-time guess, not the word being recited (frontend/src/components/QuranPlayer.vue:53)
+  Ayah playback uses `floor((currentTime / duration) * wordCount)` and segmented playback does the same within only a verse-level `time_from`/`time_to` interval (line 61). Neither path has per-word audio timings, so unequal word durations make the highlighted word wrong—for example, a long first word lasting 75% of an ayah is replaced by the fourth-word estimate at 75%. This directly defeats the learner-following requirement rather than merely reducing precision.
+  Required action: Use verified per-word timing/segmentation data to select the active word, with regression tests containing deliberately non-uniform word durations.
+- [critical] [plan-faithfulness] Word-level highlighting not present in shipped dist bundle (frontend/dist/assets/index-CZV-Xr9L.js:None)
+  Compiled QuranPlayer component's emits array is `["playback-started","repetition-complete","range-complete","playback-error","verse-highlight"]` (no `word-progress`), and the compiled QuranPractice verse template renders `f("p",Ex,B(k.arabic),1)` — the whole verse as one text node, not split into per-word spans with an active-word class. This is the pre-existing verse-highlight-only behavior. Plan Task 1 and Task 2 (word-progress emit + per-word span rendering + `--quran-accent` active word) are both marked complete in the plan but don't appear in the artifact that actually runs on the headless appliance.
+  Required action: Confirm directly against frontend/src/components/QuranPlayer.vue and frontend/src/pages/QuranPractice.vue (my diff view truncated before those files) whether `word-progress` emit and per-word span rendering actually exist in source and simply failed to reach the dist rebuild, or whether the feature was never written despite the plan's checkmarks. If the source has it but dist doesn't, the dist rebuild (Task 3) is faulty and violates the repo's 'dist must stay in sync with src' rule.
+- [medium] [ux-accessibility] Verse auto-scroll ignores prefers-reduced-motion (frontend/src/pages/QuranPractice.vue:100)
+  watch(highlightedVerse, ...) calls verseEls[key]?.scrollIntoView({behavior:'smooth', block:'center'}) on every verse change during playback, unconditionally. The project already exports prefersReducedMotion() from frontend/src/motion.ts and uses it in SolarArc.vue, Settings.vue, Dashboard.vue for exactly this kind of motion gating. Repeated forced smooth-scrolling during autoplay is a known vestibular/motion-sickness trigger for reduced-motion users.
+  Required action: Use behavior: prefersReducedMotion() ? 'auto' : 'smooth' (or equivalent) so users with prefers-reduced-motion set get an instant jump instead of repeated smooth scrolling.
+  - Commit: `0e0722e647c7`
