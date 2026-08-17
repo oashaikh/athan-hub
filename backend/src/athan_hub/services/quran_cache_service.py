@@ -230,7 +230,7 @@ def segment_manifest(
     end_ayah: int,
     cache_dir: Path | None = None,
 ) -> dict:
-    if recitation["source_kind"] != "surah" or recitation["capability"] != "segmented_surah":
+    if recitation["source_kind"] != "surah":
         raise CacheSourceError("Selected recitation does not provide verse timing")
     cache_path = None
     if cache_dir is not None:
