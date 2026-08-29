@@ -14,7 +14,7 @@
       <section class="surface-card">
         <div class="surface-heading"><span class="surface-heading-icon material-icons" aria-hidden="true">bluetooth</span><div><h2>Connection</h2><p>Speaker identity and connection timing.</p></div></div>
         <div class="field"><label class="label" for="legacy-mac">MAC address</label><input id="legacy-mac" class="input" v-model="mac" placeholder="AA:BB:CC:DD:EE:FF" /></div>
-        <div class="field"><label class="label" for="legacy-preconnect">Pre-connect seconds</label><input id="legacy-preconnect" class="input" type="number" min="0" v-model.number="settings.pre_connect_seconds" /></div>
+        <div class="field"><label class="label" for="legacy-preconnect">Takeover lead time</label><input id="legacy-preconnect" class="input" type="number" min="0" max="120" v-model.number="settings.pre_connect_seconds" /><p class="field-help">Begin claiming the speaker this many seconds before athan. Recommended: 30.</p></div>
         <div class="field"><label class="label" for="legacy-retry">Connect retry seconds</label><input id="legacy-retry" class="input" type="number" min="0" v-model.number="settings.connect_retry_seconds" /></div>
       </section>
 
@@ -48,14 +48,14 @@ const toast = inject<(message: string, type?: string) => void>('toast') || (() =
 const mac = ref('')
 const disconnectAfter = ref(true)
 const status = reactive<any>({ connected: false })
-const settings = reactive<any>({ pre_connect_seconds: 10, connect_retry_seconds: 20, grace_seconds: 120, sink_volume_percent: 140 })
+const settings = reactive<any>({ pre_connect_seconds: 30, connect_retry_seconds: 20, grace_seconds: 120, sink_volume_percent: 140 })
 
 const load = async () => {
   const st = await api.get('/bluetooth/status')
   Object.assign(status, st.data)
   const response = await api.get('/settings')
   mac.value = response.data.echo_mac || ''
-  settings.pre_connect_seconds = Number(response.data.pre_connect_seconds || 10)
+  settings.pre_connect_seconds = Number(response.data.pre_connect_seconds || 30)
   settings.connect_retry_seconds = Number(response.data.connect_retry_seconds || 20)
   settings.grace_seconds = Number(response.data.grace_seconds || 120)
   settings.sink_volume_percent = Number(response.data.sink_volume_percent || 140)
