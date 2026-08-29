@@ -6,7 +6,7 @@ from pathlib import Path
 
 
 DEFAULT_SETTINGS = {
-    "pre_connect_seconds": "10",
+    "pre_connect_seconds": "30",
     "connect_retry_seconds": "20",
     "grace_seconds": "120",
     "disconnect_after_play": "0",

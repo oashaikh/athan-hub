@@ -1,4 +1,5 @@
 import logging
+import math
 import subprocess
 import time
 from pathlib import Path
@@ -11,40 +12,64 @@ class PlaybackError(Exception):
     pass
 
 
+def prepare_output(
+    mac: str,
+    timeout_seconds: int = 30,
+    sink_volume_percent: int = 100,
+    connect_retry_seconds: int | None = None,
+) -> Dict[str, Any]:
+    timeout_seconds = max(1, int(timeout_seconds))
+    deadline = time.monotonic() + timeout_seconds
+    if bluetooth.is_connected(mac):
+        connect_result = {"status": "already connected", "stdout": "", "stderr": ""}
+    else:
+        remaining = max(1, math.ceil(deadline - time.monotonic()))
+        retry_seconds = min(remaining, connect_retry_seconds or remaining)
+        connect_result = bluetooth.connect(mac, retry_seconds=retry_seconds)
+
+    sink_name = None
+    while time.monotonic() < deadline:
+        sink_name = bluetooth.detect_sink(mac)
+        if sink_name:
+            break
+        time.sleep(min(1, max(0, deadline - time.monotonic())))
+    if not sink_name:
+        raise PlaybackError("Bluetooth sink not detected")
+
+    bluetooth.set_default_sink(sink_name)
+    try:
+        bluetooth.set_sink_volume(sink_name, sink_volume_percent / 100.0)
+    except Exception as exc:
+        logging.getLogger(__name__).warning("Failed to set sink volume: %s", exc)
+    return {
+        "status": "ready",
+        "sink": sink_name,
+        "connect": connect_result.get("stdout", ""),
+    }
+
+
 def play_once(
     mac: str,
     audio_file: Path,
-    pre_connect_seconds: int = 10,
+    pre_connect_seconds: int = 30,
     connect_retry_seconds: int = 20,
     disconnect_after_play: bool = False,
     sink_volume_percent: int = 100,
 ) -> Dict[str, Any]:
     if not audio_file.exists():
         raise PlaybackError(f"Audio file not found: {audio_file}")
-    if bluetooth.is_connected(mac):
-        connect_result = {"status": "already connected", "stdout": "", "stderr": ""}
-    else:
-        connect_result = bluetooth.connect(mac, retry_seconds=connect_retry_seconds)
-    sink_name = None
-    deadline = time.time() + pre_connect_seconds
-    while time.time() < deadline:
-        sink_name = bluetooth.detect_sink(mac)
-        if sink_name:
-            break
-        time.sleep(1)
-    if not sink_name:
-        raise PlaybackError("Bluetooth sink not detected")
-    bluetooth.set_default_sink(sink_name)
-    try:
-        bluetooth.set_sink_volume(sink_name, sink_volume_percent / 100.0)
-    except Exception as exc:
-        logging.getLogger(__name__).warning("Failed to set sink volume: %s", exc)
+    output = prepare_output(
+        mac,
+        timeout_seconds=connect_retry_seconds + pre_connect_seconds,
+        sink_volume_percent=sink_volume_percent,
+        connect_retry_seconds=connect_retry_seconds,
+    )
     proc = subprocess.run(["mpg123", "-q", str(audio_file)])
     if proc.returncode != 0:
         raise PlaybackError("mpg123 playback failed")
     if disconnect_after_play:
         bluetooth.disconnect(mac)
-    return {"status": "played", "sink": sink_name, "connect": connect_result.get("stdout", "")}
+    return {"status": "played", "sink": output["sink"], "connect": output["connect"]}
 
 
 def stop_playback() -> Dict[str, Any]:

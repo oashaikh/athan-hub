@@ -1,5 +1,7 @@
 from types import SimpleNamespace
 import subprocess
+import threading
+import time
 
 import pytest
 
@@ -64,6 +66,45 @@ def test_connect_retries_after_one_command_timeout(monkeypatch) -> None:
     assert attempts == [8, 8]
 
 
+def test_connect_serializes_attempts_across_callers(monkeypatch, tmp_path) -> None:
+    state_lock = threading.Lock()
+    first_entered = threading.Event()
+    release_first = threading.Event()
+    active = 0
+    maximum_active = 0
+
+    monkeypatch.setattr(bluetooth, "_connection_lock_path", lambda: tmp_path / "bluetooth-connect.lock")
+
+    def fake_connect_unlocked(_mac, _retry_seconds):
+        nonlocal active, maximum_active
+        with state_lock:
+            active += 1
+            maximum_active = max(maximum_active, active)
+            if not first_entered.is_set():
+                first_entered.set()
+        release_first.wait(timeout=1)
+        with state_lock:
+            active -= 1
+        return {"status": "connected", "stdout": "", "stderr": ""}
+
+    monkeypatch.setattr(bluetooth, "_connect_unlocked", fake_connect_unlocked)
+    results = []
+    threads = [
+        threading.Thread(target=lambda: results.append(bluetooth.connect("AA:BB:CC:DD:EE:FF", retry_seconds=2)))
+        for _ in range(2)
+    ]
+    threads[0].start()
+    assert first_entered.wait(timeout=1)
+    threads[1].start()
+    time.sleep(0.05)
+    release_first.set()
+    for thread in threads:
+        thread.join(timeout=2)
+
+    assert len(results) == 2
+    assert maximum_active == 1
+
+
 def test_playback_keeps_speaker_connected_by_default(monkeypatch, tmp_path) -> None:
     audio_file = tmp_path / "athan.mp3"
     audio_file.write_bytes(b"ID3")
@@ -117,3 +158,31 @@ def test_playback_waits_for_sink_without_reconnecting_connected_device(monkeypat
 
     assert result["status"] == "played"
     assert reconnects == []
+
+
+def test_prepare_output_claims_sink_without_playing_audio(monkeypatch) -> None:
+    connections = []
+    defaults = []
+    volumes = []
+
+    monkeypatch.setattr(bluetooth, "is_connected", lambda _mac: False)
+    monkeypatch.setattr(
+        bluetooth,
+        "connect",
+        lambda mac, retry_seconds: connections.append((mac, retry_seconds))
+        or {"status": "connected", "stdout": "claimed", "stderr": ""},
+    )
+    monkeypatch.setattr(bluetooth, "detect_sink", lambda _mac: "bluez_output.test")
+    monkeypatch.setattr(bluetooth, "set_default_sink", defaults.append)
+    monkeypatch.setattr(bluetooth, "set_sink_volume", lambda sink, volume: volumes.append((sink, volume)))
+
+    result = playback.prepare_output(
+        "AA:BB:CC:DD:EE:FF",
+        timeout_seconds=30,
+        sink_volume_percent=120,
+    )
+
+    assert result["status"] == "ready"
+    assert connections == [("AA:BB:CC:DD:EE:FF", 30)]
+    assert defaults == ["bluez_output.test"]
+    assert volumes == [("bluez_output.test", 1.2)]
