@@ -12,6 +12,15 @@ class PlaybackError(Exception):
     pass
 
 
+def _wait_for_sink(mac: str, deadline: float) -> str | None:
+    while time.monotonic() < deadline:
+        sink_name = bluetooth.detect_sink(mac)
+        if sink_name:
+            return sink_name
+        time.sleep(min(1, max(0, deadline - time.monotonic())))
+    return None
+
+
 def prepare_output(
     mac: str,
     timeout_seconds: int = 30,
@@ -20,19 +29,22 @@ def prepare_output(
 ) -> Dict[str, Any]:
     timeout_seconds = max(1, int(timeout_seconds))
     deadline = time.monotonic() + timeout_seconds
+    sink_name = None
     if bluetooth.is_connected(mac):
         connect_result = {"status": "already connected", "stdout": "", "stderr": ""}
+        sink_name = _wait_for_sink(mac, min(deadline, time.monotonic() + 3))
+        if not sink_name:
+            bluetooth.disconnect(mac)
+            remaining = max(1, math.ceil(deadline - time.monotonic()))
+            retry_seconds = min(remaining, connect_retry_seconds or remaining)
+            connect_result = bluetooth.connect(mac, retry_seconds=retry_seconds)
     else:
         remaining = max(1, math.ceil(deadline - time.monotonic()))
         retry_seconds = min(remaining, connect_retry_seconds or remaining)
         connect_result = bluetooth.connect(mac, retry_seconds=retry_seconds)
 
-    sink_name = None
-    while time.monotonic() < deadline:
-        sink_name = bluetooth.detect_sink(mac)
-        if sink_name:
-            break
-        time.sleep(min(1, max(0, deadline - time.monotonic())))
+    if not sink_name:
+        sink_name = _wait_for_sink(mac, deadline)
     if not sink_name:
         raise PlaybackError("Bluetooth sink not detected")
 
