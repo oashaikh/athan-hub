@@ -2,7 +2,7 @@
 
 ## 2.0.0
 
-- Added serialized Bluetooth speaker takeover 30 seconds before each athan and fixed mobile speaker-setting validation errors.
+- Added serialized Bluetooth speaker takeover 30 seconds before each athan, automatic recovery from stale connections without an audio sink, and fixed mobile speaker-setting validation errors.
 - Fixed locally bundled Material Icons rendering as clipped ligature text across the dashboard and navigation.
 - Added a child-safe Quran memorisation workspace with 114 surahs, 6,236 ayahs, translation, transliteration, and 139 pinned QUL recitations.
 - Added admin-created child profiles with independent preferences, progress, sessions, rewards, streaks, badges, and three themes.
