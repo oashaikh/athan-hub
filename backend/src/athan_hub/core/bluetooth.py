@@ -86,16 +86,34 @@ def _wait_for_pending_connection(mac: str, checks: int = 4) -> bool:
     return False
 
 
+def _speaker_device_path(mac: str, timeout_seconds: int) -> str:
+    code, out, err = _run(
+        ["busctl", "--system", "--list", "tree", "org.bluez"],
+        timeout_seconds=timeout_seconds,
+    )
+    if code != 0:
+        raise BluetoothError(f"Could not find Bluetooth speaker: {err or out}")
+    device_pattern = rf"/org/bluez/hci\d+/dev_{sink_name_for_mac(mac)}"
+    for line in out.splitlines():
+        path = line.strip()
+        if re.fullmatch(device_pattern, path):
+            return path
+    raise BluetoothError(f"Bluetooth speaker {mac} has not been discovered")
+
+
 def _connect_unlocked(mac: str, retry_seconds: int) -> Dict[str, str]:
     if is_connected(mac) and detect_sink(mac):
         return {"status": "connected", "stdout": "already connected", "stderr": ""}
     deadline = time.time() + retry_seconds
     last_error = ""
     attempt_timeout = min(8, max(1, retry_seconds))
+    device_path = _speaker_device_path(mac, attempt_timeout)
     while time.time() < deadline:
         try:
             code, out, err = _run(
-                ["bluetoothctl", "connect", mac],
+                ["busctl", "--system", "call", "org.bluez", device_path,
+                 "org.bluez.Device1", "ConnectProfile", "s",
+                 "0000110b-0000-1000-8000-00805f9b34fb"],
                 timeout_seconds=attempt_timeout,
             )
         except BluetoothError as exc:
