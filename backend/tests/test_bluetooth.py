@@ -53,6 +53,8 @@ def test_connect_retries_after_one_command_timeout(monkeypatch) -> None:
     monkeypatch.setattr(bluetooth.time, "sleep", lambda _seconds: None)
 
     def fake_run(args, timeout_seconds=35):
+        if args == ["busctl", "--system", "--list", "tree", "org.bluez"]:
+            return 0, "/org/bluez/hci0/dev_AA_BB_CC_DD_EE_FF", ""
         attempts.append(timeout_seconds)
         if len(attempts) == 1:
             raise bluetooth.BluetoothError("Bluetooth command timed out")
@@ -64,6 +66,39 @@ def test_connect_retries_after_one_command_timeout(monkeypatch) -> None:
 
     assert result["status"] == "connected"
     assert attempts == [8, 8]
+
+
+@pytest.mark.parametrize("device_path", [
+    "/org/bluez/hci0/dev_AA_BB_CC_DD_EE_FF",
+    "/org/bluez/hci1/dev_AA_BB_CC_DD_EE_FF",
+])
+def test_connect_uses_speaker_profile_when_other_profiles_are_unavailable(monkeypatch, tmp_path, device_path) -> None:
+    clock = [0.0]
+    connected = False
+    monkeypatch.setattr(bluetooth, "_connection_lock_path", lambda: tmp_path / "connect.lock")
+    monkeypatch.setattr(bluetooth.time, "time", lambda: clock[0])
+    monkeypatch.setattr(bluetooth.time, "sleep", lambda seconds: clock.__setitem__(0, clock[0] + seconds))
+
+    def fake_run(args, **_kwargs):
+        nonlocal connected
+        if args[:2] == ["bluetoothctl", "info"]:
+            return SimpleNamespace(returncode=0, stdout=f"Connected: {'yes' if connected else 'no'}", stderr="")
+        if args[:4] == ["pactl", "list", "short", "sinks"]:
+            sinks = "1\tbluez_output.AA_BB_CC_DD_EE_FF.1\tPipeWire" if connected else ""
+            return SimpleNamespace(returncode=0, stdout=sinks, stderr="")
+        if args == ["busctl", "--system", "--list", "tree", "org.bluez"]:
+            return SimpleNamespace(returncode=0, stdout=f"/org/bluez\n{device_path}\n{device_path}/sep1", stderr="")
+        if args == ["busctl", "--system", "call", "org.bluez", device_path,
+                    "org.bluez.Device1", "ConnectProfile", "s", "0000110b-0000-1000-8000-00805f9b34fb"]:
+            connected = True
+            return SimpleNamespace(returncode=0, stdout="", stderr="")
+        # The Echo advertises additional profiles that this audio transmitter cannot use.
+        return SimpleNamespace(returncode=1, stdout="", stderr="br-connection-profile-unavailable")
+
+    monkeypatch.setattr(bluetooth.subprocess, "run", fake_run)
+
+    assert bluetooth.connect("aa:bb:cc:dd:ee:ff", retry_seconds=4)["status"] == "connected"
+    assert bluetooth.detect_sink("AA:BB:CC:DD:EE:FF") == "bluez_output.AA_BB_CC_DD_EE_FF.1"
 
 
 def test_connect_serializes_attempts_across_callers(monkeypatch, tmp_path) -> None:
