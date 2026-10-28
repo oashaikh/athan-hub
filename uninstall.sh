@@ -16,6 +16,7 @@ fi
 systemctl disable --now athan-hub-api.service athan-hub-scheduler.service 2>/dev/null || true
 rm -f /etc/systemd/system/athan-hub-api.service /etc/systemd/system/athan-hub-scheduler.service
 rm -f /etc/nginx/sites-enabled/athan-hub /etc/nginx/sites-available/athan-hub
+rm -f /etc/wireplumber/wireplumber.conf.d/80-athan-hub-headless-bluetooth.conf /etc/wireplumber/bluetooth.lua.d/80-athan-hub-headless-bluetooth.lua
 for tool in athan-pair-speaker athan-hub-doctor athan-hub-update athan-hub-backup athan-hub-uninstall; do
   rm -f "/usr/local/bin/$tool"
 done
