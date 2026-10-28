@@ -106,6 +106,11 @@ if [[ -n "$service_uid" ]]; then
     PULSE_SERVER="unix:/run/user/$service_uid/pulse/native" pactl info
 fi
 
+if [[ -n "$service_uid" ]] && command -v wpctl >/dev/null 2>&1; then
+  check "Headless Bluetooth audio enabled" bash -c \
+    'test -f /etc/wireplumber/wireplumber.conf.d/80-athan-hub-headless-bluetooth.conf -o -f /etc/wireplumber/bluetooth.lua.d/80-athan-hub-headless-bluetooth.lua'
+fi
+
 printf '\nDashboard: http://%s.local\n' "$(hostname)"
 if ((failures)); then
   printf '%d check(s) failed. Inspect logs with: journalctl -u athan-hub-api -u athan-hub-scheduler -n 100\n' "$failures" >&2
