@@ -255,6 +255,40 @@ else
   log "Reusing the existing headless audio session"
 fi
 
+if [[ "$AUDIO_BACKEND" == "pipewire" ]]; then
+  # WirePlumber only runs its Bluetooth audio monitor for a user with an
+  # active logind seat. The service account is a lingering, seatless user, so
+  # without this override the speaker connects at the Bluetooth link level but
+  # its A2DP sink never appears or is torn down again. Applied on every install
+  # and update because updates skip the audio bootstrap above.
+  log "Enabling Bluetooth audio for the headless audio session"
+  wp_changed=false
+  wp_write() {
+    local target="$1" content="$2"
+    install -d -m 0755 "$(dirname "$target")"
+    if [[ ! -f "$target" ]] || [[ "$(cat "$target")" != "$content" ]]; then
+      printf '%s\n' "$content" > "$target"
+      chmod 0644 "$target"
+      wp_changed=true
+    fi
+  }
+  # WirePlumber 0.5 and newer (Debian trixie and later).
+  wp_write /etc/wireplumber/wireplumber.conf.d/80-athan-hub-headless-bluetooth.conf \
+'wireplumber.profiles = {
+  main = {
+    monitor.bluez.seat-monitoring = disabled
+  }
+}'
+  # WirePlumber 0.4 (Debian/Raspberry Pi OS bookworm).
+  wp_write /etc/wireplumber/bluetooth.lua.d/80-athan-hub-headless-bluetooth.lua \
+'bluez_monitor.properties["with-logind"] = false'
+  if [[ "$wp_changed" == true ]] && [[ -S "/run/user/${SERVICE_UID}/bus" ]]; then
+    runuser -u "$SERVICE_USER" -- env XDG_RUNTIME_DIR="/run/user/${SERVICE_UID}" \
+      DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/${SERVICE_UID}/bus" \
+      systemctl --user restart wireplumber.service || true
+  fi
+fi
+
 log "Installing system services and web server"
 install -m 0755 "$INSTALL_ROOT/deploy/pair-speaker.sh" /usr/local/bin/athan-pair-speaker
 install -m 0755 "$INSTALL_ROOT/deploy/doctor.sh" /usr/local/bin/athan-hub-doctor
