@@ -72,6 +72,8 @@ ATHAN_HA_AUDIO_URL=https://example.com/athan.mp3
 
 When all of these are set, prayers play through Home Assistant and Bluetooth is not used. The installer keeps `ATHAN_HA_` lines on updates.
 
+Add `ATHAN_HA_FRONT_DOOR=1` to make `http://athan.local` open Home Assistant. The Athan Hub dashboard then moves to `http://athan.local:8080`, and Home Assistant shows it as a sidebar page. The change applies the next time the installer or updater runs.
+
 `sudo bash /opt/athan-hub/deploy/setup-home-assistant.sh` installs Home Assistant in Docker with Alexa Media Player. Once the lines above are set, rerunning it adds next-prayer sensors, a "Play athan on the Echo" script and an Athan Hub sidebar page to Home Assistant. See [docs/ROCK4SE-RECOVERY.md](docs/ROCK4SE-RECOVERY.md) for a full rebuild from a blank SD card.
 
 ### Wi-Fi on a headless machine
