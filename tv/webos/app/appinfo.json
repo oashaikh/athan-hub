@@ -1,13 +1,13 @@
 {
   "id": "com.athanhub.dashboard",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "vendor": "Athan Hub",
   "type": "web",
   "main": "index.html",
   "title": "Athan Hub",
   "icon": "icon.png",
   "largeIcon": "largeIcon.png",
-  "resolution": "1920x1080",
+  "resolution": "1280x720",
   "disableBackHistoryAPI": true,
   "requiredACG": []
 }
