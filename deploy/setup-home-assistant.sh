@@ -160,6 +160,19 @@ audio_url="$(ha_value ATHAN_HA_AUDIO_URL)"
     printf '          is_volume_muted: false\n'
   fi
   if [[ -n "$notify_service" && -n "$audio_url" ]]; then
+    printf 'automation athan_voice:\n'
+    printf '  - id: athan_hub_voice_trigger\n'
+    printf '    alias: Play the athan when asked\n'
+    printf '    mode: single\n'
+    printf '    triggers:\n'
+    printf '      - trigger: state\n'
+    printf '        entity_id: media_player.%s\n' "${notify_service#alexa_media_}"
+    printf '        attribute: last_called_summary\n'
+    printf '    conditions:\n'
+    printf "      - condition: template\n"
+    printf "        value_template: \"{{ trigger.to_state.attributes.last_called_summary | lower | regex_search('athan|adhan|azan|adan') }}\"\n"
+    printf '    actions:\n'
+    printf '      - action: script.play_athan_on_echo\n'
     printf 'script:\n'
     printf '  play_athan_on_echo:\n'
     printf '    alias: Play athan on the Echo\n'
