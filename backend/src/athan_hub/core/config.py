@@ -39,6 +39,7 @@ class AppSettings(BaseSettings):
     ha_token: str = os.environ.get("ATHAN_HA_TOKEN", "")
     ha_notify_service: str = os.environ.get("ATHAN_HA_NOTIFY_SERVICE", "")
     ha_audio_url: str = os.environ.get("ATHAN_HA_AUDIO_URL", "")
+    ha_volume: int = int(os.environ.get("ATHAN_HA_VOLUME", "0"))
 
     def ensure_directories(self) -> None:
         for path in [self.data_dir, self.log_dir, self.upload_dir, self.audio_dir, self.background_dir, self.quran_cache_dir, self.db_path.parent]:

@@ -70,7 +70,9 @@ ATHAN_HA_NOTIFY_SERVICE=alexa_media_<echo name>
 ATHAN_HA_AUDIO_URL=https://example.com/athan.mp3
 ```
 
-When all of these are set, prayers play through Home Assistant and Bluetooth is not used. The installer keeps `ATHAN_HA_` lines on updates.
+Optional extras: `ATHAN_HA_VOLUME=60` sets the Echo to 60% for the athan and restores the previous volume afterwards, and `ATHAN_HA_AUDIO_URL_FAJR` (or `_DHUHR`, `_ASR`, `_MAGHRIB`, `_ISHA`) plays a different hosted athan for that prayer. Do Not Disturb on the Echo is switched off for the athan and back on afterwards, because it otherwise silences the Echo without any error.
+
+When all of these are set, prayers play through Home Assistant. If Home Assistant or the Echo is unavailable for 90 seconds, Athan Hub falls back to Bluetooth when a speaker is paired. The installer keeps `ATHAN_HA_` lines on updates.
 
 Add `ATHAN_HA_FRONT_DOOR=1` to make `http://athan.local` open Home Assistant. The Athan Hub dashboard then moves to `http://athan.local:8080`, and Home Assistant shows it as a sidebar page. The change applies the next time the installer or updater runs.
 
