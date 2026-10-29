@@ -30,7 +30,15 @@ if ! command -v docker >/dev/null || [[ "$(docker version -f '{{.Server.Version}
   systemctl enable --now docker
 fi
 
-install -d -m 0755 "$CONFIG_DIR/custom_components" "$CONFIG_DIR/packages" "$CONFIG_DIR/themes"
+install -d -m 0755 "$CONFIG_DIR/custom_components" "$CONFIG_DIR/packages" "$CONFIG_DIR/themes" "$CONFIG_DIR/www/community"
+
+# Dashboard cards, pinned. card-mod is a frontend module so the theme can style every card.
+fetch_card() {
+  [[ -s "$CONFIG_DIR/www/community/$1" ]] || curl -fsSL -o "$CONFIG_DIR/www/community/$1" "$2"
+}
+fetch_card card-mod-4.2.1.js https://raw.githubusercontent.com/thomasloven/lovelace-card-mod/v4.2.1/card-mod.js
+fetch_card layout-card-2.4.7.js https://raw.githubusercontent.com/thomasloven/lovelace-layout-card/v2.4.7/layout-card.js
+fetch_card mushroom-5.2.3.js https://github.com/piitaya/lovelace-mushroom/releases/download/v5.2.3/mushroom.js
 install -m 0644 "$SCRIPT_DIR/homeassistant/themes/athan_glass.yaml" "$CONFIG_DIR/themes/athan_glass.yaml"
 
 if [[ ! -f "$CONFIG_DIR/custom_components/alexa_media/manifest.json" ]]; then
@@ -45,6 +53,9 @@ fi
 # Packages hold the Athan Hub additions so configuration.yaml stays the default.
 if [[ -f "$CONFIG_DIR/configuration.yaml" ]] && ! grep -q '^  packages:' "$CONFIG_DIR/configuration.yaml"; then
   printf '\nhomeassistant:\n  packages: !include_dir_named packages\n' >> "$CONFIG_DIR/configuration.yaml"
+fi
+if [[ -f "$CONFIG_DIR/configuration.yaml" ]] && ! grep -q 'card-mod-4.2.1.js' "$CONFIG_DIR/configuration.yaml"; then
+  sed -i '/^frontend:/a\  extra_module_url:\n    - /local/community/card-mod-4.2.1.js' "$CONFIG_DIR/configuration.yaml"
 fi
 # nginx proxies port 80 to Home Assistant when ATHAN_HA_FRONT_DOOR=1.
 if [[ -f "$CONFIG_DIR/configuration.yaml" ]] && ! grep -q '^http:' "$CONFIG_DIR/configuration.yaml"; then
@@ -68,6 +79,15 @@ audio_url="$(ha_value ATHAN_HA_AUDIO_URL)"
   printf '        unique_id: athan_hub_next_prayer_time\n'
   printf '        device_class: timestamp\n'
   printf '        value_template: "{{ value_json.next.at if value_json.next else none }}"\n'
+  printf '  - resource_template: "http://127.0.0.1:9000/api/timetable/day?date={{ now().date() }}"\n'
+  printf '    scan_interval: 900\n'
+  printf '    sensor:\n'
+  printf '      - name: Prayer times today\n'
+  printf '        unique_id: athan_hub_prayer_times_today\n'
+  printf '        icon: mdi:calendar-clock\n'
+  printf '        value_template: "{{ value_json.date }}"\n'
+  printf '        json_attributes:\n'
+  printf '          - prayers\n'
   if [[ -n "$notify_service" && -n "$audio_url" ]]; then
     printf 'script:\n'
     printf '  play_athan_on_echo:\n'
@@ -137,7 +157,21 @@ async def main():
                 if reply.get("id") == message["id"]:
                     return reply
 
+        await call({"type": "config/core/update", "unit_system": "metric"})
+        wanted = {
+            "/local/community/layout-card-2.4.7.js": "module",
+            "/local/community/mushroom-5.2.3.js": "module",
+            "https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;700&display=swap": "css",
+        }
+        have = {r["url"] for r in (await call({"type": "lovelace/resources"}))["result"]}
+        for url, res_type in wanted.items():
+            if url not in have:
+                await call({"type": "lovelace/resources/create", "url": url, "res_type": res_type})
         await call({"type": "call_service", "domain": "frontend", "service": "reload_themes"})
+        await call({"type": "call_service", "domain": "frontend", "service": "set_theme",
+                    "service_data": {"name": "Athan Glass", "mode": "light"}})
+        await call({"type": "call_service", "domain": "frontend", "service": "set_theme",
+                    "service_data": {"name": "Athan Glass", "mode": "dark"}})
         existing = {d["url_path"] for d in (await call({"type": "lovelace/dashboards/list"}))["result"]}
         dashboards = {
             "home-dashboard": ("Home", "mdi:home-variant", json.load(open("/tmp/home-dashboard.json"))),
