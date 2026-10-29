@@ -17,8 +17,19 @@ Athan Glass:
   secondary-text-color: "rgba(255, 255, 255, 0.74)"
   disabled-text-color: "rgba(255, 255, 255, 0.45)"
   primary-background-color: "#2a1150"
-  secondary-background-color: "rgba(255, 255, 255, 0.10)"
-  card-background-color: "rgba(255, 255, 255, 0.13)"
+  # Solid colours for dialogs, menus and forms, which sit on top of the dashboard;
+  # only the dashboard cards (ha-card-background) are see-through.
+  secondary-background-color: "#33185c"
+  card-background-color: "#2a1150"
+  ha-dialog-surface-background: "#2a1150"
+  mdc-theme-surface: "#2a1150"
+  ha-color-form-background: "#3a1d66"
+  mdc-text-field-fill-color: "#3a1d66"
+  mdc-text-field-ink-color: "#ffffff"
+  mdc-text-field-label-ink-color: "rgba(255, 255, 255, 0.72)"
+  input-ink-color: "#ffffff"
+  input-label-ink-color: "rgba(255, 255, 255, 0.72)"
+  code-editor-background-color: "#22103f"
   ha-card-background: "rgba(255, 255, 255, 0.13)"
   ha-card-border-radius: "18px"
   ha-card-border-width: "0px"
@@ -38,8 +49,7 @@ Athan Glass:
   sidebar-icon-color: "rgba(255, 255, 255, 0.72)"
   sidebar-selected-text-color: "#ffd166"
   sidebar-selected-icon-color: "#ffd166"
-  mdc-theme-surface: "#2a1150"
-  input-fill-color: "rgba(255, 255, 255, 0.10)"
+  input-fill-color: "#3a1d66"
   card-mod-theme: "Athan Glass"
   card-mod-card: |
     ha-card {
