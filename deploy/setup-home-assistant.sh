@@ -317,7 +317,7 @@ async def main():
             if dashboard["url_path"] == "map":
                 await call({"type": "lovelace/dashboards/delete", "dashboard_id": dashboard["id"]})
         hidden = ["lovelace", "energy", "history", "logbook", "map", "media-browser", "todo",
-                  "climate", "light", "security", "maintenance", "home"]
+                  "climate", "light", "security", "maintenance", "home", "calendar"]
         await call({"type": "frontend/set_user_data", "key": "sidebar",
                     "value": {"panelOrder": ["home-dashboard", "athan-hub"], "hiddenPanels": hidden}})
         await call({"type": "frontend/set_user_data", "key": "core", "value": {"default_panel": "home-dashboard"}})
