@@ -7,14 +7,14 @@
       "type": "custom:grid-layout",
       "layout": {
         "grid-template-columns": "minmax(300px, 360px) 1fr 1fr",
-        "grid-template-areas": "\"side hero hero\" \"side athan media\" \"side system media\"",
-        "grid-template-rows": "auto auto 1fr",
+        "grid-template-areas": "\"side hero hero\" \"side live live\" \"side athan media\" \"side system media\"",
+        "grid-template-rows": "auto auto auto 1fr",
         "grid-gap": "18px",
         "padding": "8px 20px 24px",
         "mediaquery": {
           "(max-width: 1000px)": {
             "grid-template-columns": "1fr",
-            "grid-template-areas": "\"side\" \"hero\" \"athan\" \"media\" \"system\""
+            "grid-template-areas": "\"side\" \"hero\" \"live\" \"athan\" \"media\" \"system\""
           }
         }
       },
@@ -73,6 +73,113 @@
           "content": "{% set t = states('sensor.next_prayer_time') %}## Next prayer\n# {{ states('sensor.next_prayer') }}\n{% if t not in ['unknown', 'unavailable'] %}{% set mins = ((as_datetime(t) - now()).total_seconds() // 60) | int %}{{ as_local(as_datetime(t)).strftime('%H:%M') }} \u00b7 in {% if mins >= 60 %}{{ mins // 60 }} h {% endif %}{{ mins % 60 }} min \u00b7 plays on the Hallway Echo Pop{% else %}Waiting for Athan Hub{% endif %}"
         },
         {
+          "type": "grid",
+          "view_layout": {
+            "grid-area": "live"
+          },
+          "columns": 3,
+          "square": false,
+          "card_mod": {
+            "style": "ha-card { background: none !important; border: none !important; box-shadow: none !important; backdrop-filter: none !important; }"
+          },
+          "cards": [
+            {
+              "type": "tile",
+              "entity": "script.play_athan_on_echo",
+              "name": "Athan playing",
+              "icon": "mdi:mosque",
+              "state_content": "last_triggered",
+              "visibility": [
+                {
+                  "condition": "state",
+                  "entity": "script.play_athan_on_echo",
+                  "state": "on"
+                }
+              ],
+              "card_mod": {
+                "style": "ha-card { background: rgba(255, 255, 255, 0.94) !important; --primary-text-color: #2a1150; --secondary-text-color: #6a5a85; --tile-color: #f0266f; }"
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "timer.echo_timer",
+              "name": "Echo timer",
+              "icon": "mdi:timer-outline",
+              "visibility": [
+                {
+                  "condition": "state",
+                  "entity": "timer.echo_timer",
+                  "state": [
+                    "active",
+                    "paused"
+                  ]
+                }
+              ],
+              "card_mod": {
+                "style": "ha-card { background: rgba(255, 255, 255, 0.94) !important; --primary-text-color: #2a1150; --secondary-text-color: #6a5a85; --tile-color: #f0266f; }"
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "sensor.hallway_echo_pop_next_alarm",
+              "name": "Alarm",
+              "icon": "mdi:alarm",
+              "visibility": [
+                {
+                  "condition": "state",
+                  "entity": "sensor.hallway_echo_pop_next_alarm",
+                  "state_not": [
+                    "unknown",
+                    "unavailable"
+                  ]
+                }
+              ],
+              "card_mod": {
+                "style": "ha-card { background: rgba(255, 255, 255, 0.94) !important; --primary-text-color: #2a1150; --secondary-text-color: #6a5a85; --tile-color: #f0266f; }"
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "sensor.hallway_echo_pop_next_reminder",
+              "name": "Reminder",
+              "icon": "mdi:bell-outline",
+              "visibility": [
+                {
+                  "condition": "state",
+                  "entity": "sensor.hallway_echo_pop_next_reminder",
+                  "state_not": [
+                    "unknown",
+                    "unavailable"
+                  ]
+                }
+              ],
+              "card_mod": {
+                "style": "ha-card { background: rgba(255, 255, 255, 0.94) !important; --primary-text-color: #2a1150; --secondary-text-color: #6a5a85; --tile-color: #f0266f; }"
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "media_player.hallway_echo_pop",
+              "name": "Now playing",
+              "icon": "mdi:music",
+              "state_content": [
+                "media_title",
+                "media_artist"
+              ],
+              "visibility": [
+                {
+                  "condition": "state",
+                  "entity": "media_player.hallway_echo_pop",
+                  "state": "playing"
+                }
+              ],
+              "card_mod": {
+                "style": "ha-card { background: rgba(255, 255, 255, 0.94) !important; --primary-text-color: #2a1150; --secondary-text-color: #6a5a85; --tile-color: #f0266f; }"
+              }
+            }
+          ]
+        },
+        {
           "type": "vertical-stack",
           "view_layout": {
             "grid-area": "athan"
@@ -95,14 +202,6 @@
               "hold_action": {
                 "action": "none"
               }
-            },
-            {
-              "type": "custom:mushroom-template-card",
-              "entity": "sensor.hallway_echo_pop_next_reminder",
-              "primary": "Echo reminder",
-              "secondary": "{% set r = states('sensor.hallway_echo_pop_next_reminder') %}{{ as_local(as_datetime(r)).strftime('%a %H:%M') if r not in ['unknown', 'unavailable'] else 'None set' }}",
-              "icon": "mdi:bell-outline",
-              "icon_color": "white"
             }
           ]
         },

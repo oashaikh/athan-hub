@@ -88,6 +88,38 @@ audio_url="$(ha_value ATHAN_HA_AUDIO_URL)"
   printf '        value_template: "{{ value_json.date }}"\n'
   printf '        json_attributes:\n'
   printf '          - prayers\n'
+  if [[ -n "$notify_service" ]]; then
+    # Mirror the Echo's next Alexa timer into a Home Assistant timer so the dashboard
+    # can show a live, second-by-second countdown only while one is running.
+    echo_slug="${notify_service#alexa_media_}"
+    printf 'timer:\n'
+    printf '  echo_timer:\n'
+    printf '    name: Echo timer\n'
+    printf '    icon: mdi:timer-outline\n'
+    printf 'automation:\n'
+    printf '  - id: athan_hub_mirror_echo_timer\n'
+    printf '    alias: Mirror the Echo timer\n'
+    printf '    mode: restart\n'
+    printf '    triggers:\n'
+    printf '      - trigger: state\n'
+    printf '        entity_id: sensor.%s_next_timer\n' "$echo_slug"
+    printf '      - trigger: homeassistant\n'
+    printf '        event: start\n'
+    printf '    actions:\n'
+    printf '      - variables:\n'
+    printf '          seconds: "{%% set t = states(%s) %%}{{ ((as_datetime(t) - now()).total_seconds() | int) if t not in [%s, %s] else 0 }}"\n' "'sensor.${echo_slug}_next_timer'" "'unknown'" "'unavailable'"
+    printf '      - if: "{{ seconds | int > 0 }}"\n'
+    printf '        then:\n'
+    printf '          - action: timer.start\n'
+    printf '            target:\n'
+    printf '              entity_id: timer.echo_timer\n'
+    printf '            data:\n'
+    printf '              duration: "{{ seconds }}"\n'
+    printf '        else:\n'
+    printf '          - action: timer.cancel\n'
+    printf '            target:\n'
+    printf '              entity_id: timer.echo_timer\n'
+  fi
   if [[ -n "$notify_service" && -n "$audio_url" ]]; then
     printf 'script:\n'
     printf '  play_athan_on_echo:\n'
