@@ -1,0 +1,17 @@
+play_athan:
+  fields:
+    media_player:
+      required: true
+      selector:
+        entity:
+          domain: media_player
+          multiple: true
+    media_content_id:
+      required: false
+      example: "https://example.org/athan.mp3"
+      selector:
+        text:
+    announce:
+      required: false
+      selector:
+        boolean:

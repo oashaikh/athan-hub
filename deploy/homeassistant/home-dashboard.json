@@ -1,0 +1,371 @@
+{
+  "views": [
+    {
+      "title": "Home",
+      "path": "home",
+      "theme": "Athan Glass",
+      "type": "custom:grid-layout",
+      "layout": {
+        "grid-template-columns": "minmax(300px, 360px) 1fr 1fr",
+        "grid-template-areas": "\"side hero hero\" \"side live live\" \"side athan media\" \"side system media\"",
+        "grid-template-rows": "auto auto auto 1fr",
+        "grid-gap": "18px",
+        "padding": "8px 20px 24px",
+        "mediaquery": {
+          "(max-width: 1000px)": {
+            "grid-template-columns": "1fr",
+            "grid-template-areas": "\"side\" \"hero\" \"live\" \"athan\" \"media\" \"system\""
+          }
+        }
+      },
+      "cards": [
+        {
+          "type": "vertical-stack",
+          "view_layout": {
+            "grid-area": "side"
+          },
+          "cards": [
+            {
+              "type": "markdown",
+              "card_mod": {
+                "style": {
+                  ".": "ha-card { background: none !important; border: none !important; box-shadow: none !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; } ha-card { padding: 0 4px !important; }",
+                  "ha-markdown$": "h1 { font-size: 84px; font-weight: 300; letter-spacing: -3px; line-height: 1; margin: 4px 0 14px; } p { margin: 2px 0; font-size: 18px; opacity: 0.92; }"
+                }
+              },
+              "content": "# {{ now().strftime('%H:%M') }}\n{{ now().strftime('%A') }} {{ now().day }} {{ now().strftime('%B') }}\n\n**Week {{ now().isocalendar()[1] }}** \u00b7 {% if now().hour < 12 %}Good morning{% elif now().hour < 18 %}Good afternoon{% else %}Good evening{% endif %}"
+            },
+            {
+              "type": "custom:mushroom-template-card",
+              "entity": "weather.forecast_home",
+              "primary": "{{ (state_attr('weather.forecast_home', 'temperature') or 0) | round(0) }}\u00b0C \u00b7 {{ states('weather.forecast_home') | replace('partlycloudy', 'partly cloudy') | replace('clear-night', 'clear') | title }}",
+              "secondary": "Humidity {{ state_attr('weather.forecast_home', 'humidity') }}% \u00b7 Wind {{ (state_attr('weather.forecast_home', 'wind_speed') or 0) | round(0) }} {{ state_attr('weather.forecast_home', 'wind_speed_unit') }}",
+              "icon": "{% set c = states('weather.forecast_home') %}{{ {'clear-night':'mdi:weather-night','cloudy':'mdi:weather-cloudy','fog':'mdi:weather-fog','rainy':'mdi:weather-rainy','pouring':'mdi:weather-pouring','snowy':'mdi:weather-snowy','sunny':'mdi:weather-sunny','windy':'mdi:weather-windy','partlycloudy':'mdi:weather-partly-cloudy','lightning-rainy':'mdi:weather-lightning-rainy'}.get(c, 'mdi:weather-cloudy') }}",
+              "icon_color": "white",
+              "tap_action": {
+                "action": "more-info"
+              }
+            },
+            {
+              "type": "markdown",
+              "title": "Today's prayers",
+              "card_mod": {
+                "style": {
+                  ".": "ha-card .card-header { font-size: 13px !important; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; opacity: 0.75; padding-bottom: 0 !important; }",
+                  "ha-markdown$": "table { width: 100%; border-collapse: collapse; font-size: 18px; } td, th, tr { border: none !important; } td { padding: 8px 2px; border-bottom: 1px solid rgba(255,255,255,0.12) !important; } tr:last-child td { border-bottom: none !important; } td:last-child { text-align: right; font-variant-numeric: tabular-nums; }"
+                }
+              },
+              "content": "{% set next = states('sensor.next_prayer') | lower %}{% set p = state_attr('sensor.prayer_times_today', 'prayers') or {} %}<table>{% for key, label in [('fajr','Fajr'),('shurooq','Sunrise'),('dhuhr','Dhuhr'),('asr','Asr'),('maghrib','Maghrib'),('isha','Isha')] %}{% set t = (p.get(key) or {}).get('effective', '\u2013') %}<tr>{% if key == next %}<td><b><font color=\"#ffd166\">{{ label }}</font></b></td><td><b><font color=\"#ffd166\">{{ t }}</font></b></td>{% else %}<td>{{ label }}</td><td>{{ t }}</td>{% endif %}</tr>{% endfor %}</table>"
+            }
+          ]
+        },
+        {
+          "type": "markdown",
+          "view_layout": {
+            "grid-area": "hero"
+          },
+          "card_mod": {
+            "style": {
+              ".": "ha-card { padding: 26px 30px !important; }",
+              "ha-markdown$": "h2 { font-size: 14px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; opacity: 0.8; margin: 0 0 4px; } h1 { font-size: 64px; font-weight: 700; line-height: 1.05; margin: 0; letter-spacing: -1.5px; } p { font-size: 20px; margin: 10px 0 0; opacity: 0.92; }"
+            }
+          },
+          "content": "{% set t = states('sensor.next_prayer_time') %}## Next prayer\n# {{ states('sensor.next_prayer') }}\n{% if t not in ['unknown', 'unavailable'] %}{% set mins = ((as_datetime(t) - now()).total_seconds() // 60) | int %}{{ as_local(as_datetime(t)).strftime('%H:%M') }} \u00b7 in {% if mins >= 60 %}{{ mins // 60 }} h {% endif %}{{ mins % 60 }} min \u00b7 plays on the Hallway Echo Pop{% else %}Waiting for Athan Hub{% endif %}"
+        },
+        {
+          "type": "grid",
+          "view_layout": {
+            "grid-area": "live"
+          },
+          "columns": 2,
+          "square": false,
+          "card_mod": {
+            "style": "ha-card { background: none !important; border: none !important; box-shadow: none !important; backdrop-filter: none !important; }"
+          },
+          "cards": [
+            {
+              "type": "tile",
+              "entity": "script.play_athan_on_echo",
+              "name": "Athan playing",
+              "icon": "mdi:mosque",
+              "state_content": "last_triggered",
+              "visibility": [
+                {
+                  "condition": "state",
+                  "entity": "script.play_athan_on_echo",
+                  "state": "on"
+                }
+              ],
+              "card_mod": {
+                "style": {
+                  ".": "ha-card { background: rgba(255, 255, 255, 0.95) !important; --primary-text-color: #2a1150; --secondary-text-color: #2a1150; --tile-color: #f0266f; min-height: 132px; justify-content: center; } ha-tile-icon { --tile-icon-size: 64px; --tile-icon-color: #f0266f; color: #f0266f; --tile-icon-border-radius: 20px; } .container { padding: 18px 22px !important; gap: 18px; } .content { gap: 20px !important; }",
+                  "ha-tile-info$": ".primary { font-size: 20px !important; font-weight: 600 !important; opacity: 0.75; line-height: 1.3 !important; } .secondary { font-size: 40px !important; font-weight: 700 !important; line-height: 1.15 !important; letter-spacing: -0.5px; font-variant-numeric: tabular-nums; }"
+                }
+              },
+              "color": "pink"
+            },
+            {
+              "type": "tile",
+              "entity": "timer.echo_timer_1",
+              "name": "Timer",
+              "icon": "mdi:timer-outline",
+              "visibility": [
+                {
+                  "condition": "state",
+                  "entity": "timer.echo_timer_1",
+                  "state": [
+                    "active",
+                    "paused"
+                  ]
+                }
+              ],
+              "card_mod": {
+                "style": {
+                  ".": "ha-card { background: rgba(255, 255, 255, 0.95) !important; --primary-text-color: #2a1150; --secondary-text-color: #2a1150; --tile-color: #f0266f; min-height: 132px; justify-content: center; } ha-tile-icon { --tile-icon-size: 64px; --tile-icon-color: #f0266f; color: #f0266f; --tile-icon-border-radius: 20px; } .container { padding: 18px 22px !important; gap: 18px; } .content { gap: 20px !important; }",
+                  "ha-tile-info$": ".primary { font-size: 20px !important; font-weight: 600 !important; opacity: 0.75; line-height: 1.3 !important; } .secondary { font-size: 40px !important; font-weight: 700 !important; line-height: 1.15 !important; letter-spacing: -0.5px; font-variant-numeric: tabular-nums; }"
+                }
+              },
+              "color": "pink"
+            },
+            {
+              "type": "tile",
+              "entity": "timer.echo_timer_2",
+              "name": "Timer 2",
+              "icon": "mdi:timer-outline",
+              "visibility": [
+                {
+                  "condition": "state",
+                  "entity": "timer.echo_timer_2",
+                  "state": [
+                    "active",
+                    "paused"
+                  ]
+                }
+              ],
+              "card_mod": {
+                "style": {
+                  ".": "ha-card { background: rgba(255, 255, 255, 0.95) !important; --primary-text-color: #2a1150; --secondary-text-color: #2a1150; --tile-color: #f0266f; min-height: 132px; justify-content: center; } ha-tile-icon { --tile-icon-size: 64px; --tile-icon-color: #f0266f; color: #f0266f; --tile-icon-border-radius: 20px; } .container { padding: 18px 22px !important; gap: 18px; } .content { gap: 20px !important; }",
+                  "ha-tile-info$": ".primary { font-size: 20px !important; font-weight: 600 !important; opacity: 0.75; line-height: 1.3 !important; } .secondary { font-size: 40px !important; font-weight: 700 !important; line-height: 1.15 !important; letter-spacing: -0.5px; font-variant-numeric: tabular-nums; }"
+                }
+              },
+              "color": "pink"
+            },
+            {
+              "type": "tile",
+              "entity": "timer.echo_timer_3",
+              "name": "Timer 3",
+              "icon": "mdi:timer-outline",
+              "visibility": [
+                {
+                  "condition": "state",
+                  "entity": "timer.echo_timer_3",
+                  "state": [
+                    "active",
+                    "paused"
+                  ]
+                }
+              ],
+              "card_mod": {
+                "style": {
+                  ".": "ha-card { background: rgba(255, 255, 255, 0.95) !important; --primary-text-color: #2a1150; --secondary-text-color: #2a1150; --tile-color: #f0266f; min-height: 132px; justify-content: center; } ha-tile-icon { --tile-icon-size: 64px; --tile-icon-color: #f0266f; color: #f0266f; --tile-icon-border-radius: 20px; } .container { padding: 18px 22px !important; gap: 18px; } .content { gap: 20px !important; }",
+                  "ha-tile-info$": ".primary { font-size: 20px !important; font-weight: 600 !important; opacity: 0.75; line-height: 1.3 !important; } .secondary { font-size: 40px !important; font-weight: 700 !important; line-height: 1.15 !important; letter-spacing: -0.5px; font-variant-numeric: tabular-nums; }"
+                }
+              },
+              "color": "pink"
+            },
+            {
+              "type": "tile",
+              "entity": "timer.echo_timer_4",
+              "name": "Timer 4",
+              "icon": "mdi:timer-outline",
+              "visibility": [
+                {
+                  "condition": "state",
+                  "entity": "timer.echo_timer_4",
+                  "state": [
+                    "active",
+                    "paused"
+                  ]
+                }
+              ],
+              "card_mod": {
+                "style": {
+                  ".": "ha-card { background: rgba(255, 255, 255, 0.95) !important; --primary-text-color: #2a1150; --secondary-text-color: #2a1150; --tile-color: #f0266f; min-height: 132px; justify-content: center; } ha-tile-icon { --tile-icon-size: 64px; --tile-icon-color: #f0266f; color: #f0266f; --tile-icon-border-radius: 20px; } .container { padding: 18px 22px !important; gap: 18px; } .content { gap: 20px !important; }",
+                  "ha-tile-info$": ".primary { font-size: 20px !important; font-weight: 600 !important; opacity: 0.75; line-height: 1.3 !important; } .secondary { font-size: 40px !important; font-weight: 700 !important; line-height: 1.15 !important; letter-spacing: -0.5px; font-variant-numeric: tabular-nums; }"
+                }
+              },
+              "color": "pink"
+            },
+            {
+              "type": "tile",
+              "entity": "sensor.hallway_echo_pop_next_alarm",
+              "name": "Alarm",
+              "icon": "mdi:alarm",
+              "visibility": [
+                {
+                  "condition": "state",
+                  "entity": "sensor.hallway_echo_pop_next_alarm",
+                  "state_not": [
+                    "unknown",
+                    "unavailable"
+                  ]
+                }
+              ],
+              "card_mod": {
+                "style": {
+                  ".": "ha-card { background: rgba(255, 255, 255, 0.95) !important; --primary-text-color: #2a1150; --secondary-text-color: #2a1150; --tile-color: #f0266f; min-height: 132px; justify-content: center; } ha-tile-icon { --tile-icon-size: 64px; --tile-icon-color: #f0266f; color: #f0266f; --tile-icon-border-radius: 20px; } .container { padding: 18px 22px !important; gap: 18px; } .content { gap: 20px !important; }",
+                  "ha-tile-info$": ".primary { font-size: 20px !important; font-weight: 600 !important; opacity: 0.75; line-height: 1.3 !important; } .secondary { font-size: 40px !important; font-weight: 700 !important; line-height: 1.15 !important; letter-spacing: -0.5px; font-variant-numeric: tabular-nums; }"
+                }
+              },
+              "color": "pink"
+            },
+            {
+              "type": "tile",
+              "entity": "sensor.hallway_echo_pop_next_reminder",
+              "name": "Reminder",
+              "icon": "mdi:bell-outline",
+              "visibility": [
+                {
+                  "condition": "state",
+                  "entity": "sensor.hallway_echo_pop_next_reminder",
+                  "state_not": [
+                    "unknown",
+                    "unavailable"
+                  ]
+                }
+              ],
+              "card_mod": {
+                "style": {
+                  ".": "ha-card { background: rgba(255, 255, 255, 0.95) !important; --primary-text-color: #2a1150; --secondary-text-color: #2a1150; --tile-color: #f0266f; min-height: 132px; justify-content: center; } ha-tile-icon { --tile-icon-size: 64px; --tile-icon-color: #f0266f; color: #f0266f; --tile-icon-border-radius: 20px; } .container { padding: 18px 22px !important; gap: 18px; } .content { gap: 20px !important; }",
+                  "ha-tile-info$": ".primary { font-size: 20px !important; font-weight: 600 !important; opacity: 0.75; line-height: 1.3 !important; } .secondary { font-size: 40px !important; font-weight: 700 !important; line-height: 1.15 !important; letter-spacing: -0.5px; font-variant-numeric: tabular-nums; }"
+                }
+              },
+              "color": "pink"
+            },
+            {
+              "type": "tile",
+              "entity": "media_player.hallway_echo_pop",
+              "name": "Now playing",
+              "icon": "mdi:music",
+              "state_content": [
+                "media_title",
+                "media_artist"
+              ],
+              "visibility": [
+                {
+                  "condition": "state",
+                  "entity": "media_player.hallway_echo_pop",
+                  "state": "playing"
+                }
+              ],
+              "card_mod": {
+                "style": {
+                  ".": "ha-card { background: rgba(255, 255, 255, 0.95) !important; --primary-text-color: #2a1150; --secondary-text-color: #2a1150; --tile-color: #f0266f; min-height: 132px; justify-content: center; } ha-tile-icon { --tile-icon-size: 64px; --tile-icon-color: #f0266f; color: #f0266f; --tile-icon-border-radius: 20px; } .container { padding: 18px 22px !important; gap: 18px; } .content { gap: 20px !important; }",
+                  "ha-tile-info$": ".primary { font-size: 20px !important; font-weight: 600 !important; opacity: 0.75; line-height: 1.3 !important; } .secondary { font-size: 40px !important; font-weight: 700 !important; line-height: 1.15 !important; letter-spacing: -0.5px; font-variant-numeric: tabular-nums; }"
+                }
+              },
+              "color": "pink"
+            }
+          ]
+        },
+        {
+          "type": "vertical-stack",
+          "view_layout": {
+            "grid-area": "athan"
+          },
+          "cards": [
+            {
+              "type": "custom:mushroom-template-card",
+              "entity": "script.play_athan_on_echo",
+              "primary": "Play athan now",
+              "secondary": "{{ 'Playing on the Echo' if is_state('script.play_athan_on_echo', 'on') else 'Ahmed Al-Nufais \u00b7 3 min 34 s' }}",
+              "icon": "mdi:mosque",
+              "icon_color": "amber",
+              "tap_action": {
+                "action": "perform-action",
+                "perform_action": "script.play_athan_on_echo",
+                "confirmation": {
+                  "text": "Play the athan on the Hallway Echo Pop now?"
+                }
+              },
+              "hold_action": {
+                "action": "none"
+              }
+            }
+          ]
+        },
+        {
+          "type": "vertical-stack",
+          "view_layout": {
+            "grid-area": "media"
+          },
+          "cards": [
+            {
+              "type": "custom:mushroom-media-player-card",
+              "entity": "media_player.hallway_echo_pop",
+              "name": "Hallway Echo Pop",
+              "icon": "mdi:speaker",
+              "use_media_info": true,
+              "show_volume_level": true,
+              "volume_controls": [
+                "volume_mute",
+                "volume_set"
+              ],
+              "media_controls": [
+                "play_pause_on",
+                "previous",
+                "next"
+              ],
+              "fill_container": false
+            },
+            {
+              "type": "custom:mushroom-media-player-card",
+              "entity": "media_player.lg_webos_tv_65un85006la",
+              "name": "Living room TV",
+              "icon": "mdi:television",
+              "use_media_info": true,
+              "volume_controls": [
+                "volume_mute",
+                "volume_buttons"
+              ],
+              "media_controls": [
+                "on_off",
+                "play_pause_on"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "custom:mushroom-chips-card",
+          "view_layout": {
+            "grid-area": "system"
+          },
+          "alignment": "start",
+          "chips": [
+            {
+              "type": "template",
+              "icon": "mdi:cpu-64-bit",
+              "icon_color": "white",
+              "content": "CPU {{ states('sensor.system_monitor_processor_use') }}%"
+            },
+            {
+              "type": "template",
+              "icon": "mdi:memory",
+              "icon_color": "white",
+              "content": "RAM {{ states('sensor.system_monitor_memory_usage') | round(0) }}%"
+            },
+            {
+              "type": "template",
+              "icon": "mdi:harddisk",
+              "icon_color": "white",
+              "content": "Disk {{ states('sensor.system_monitor_disk_usage') | round(0) }}%"
+            }
+          ],
+          "card_mod": {
+            "style": "ha-card { background: none !important; border: none !important; box-shadow: none !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }"
+          }
+        }
+      ]
+    }
+  ]
+}
