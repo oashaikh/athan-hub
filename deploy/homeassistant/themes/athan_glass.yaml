@@ -1,0 +1,50 @@
+# Gradient glass theme for the Home dashboard. card-mod (loaded by
+# setup-home-assistant.sh as a frontend module) adds the frosted blur and border.
+Athan Glass:
+  lovelace-background: "center / cover no-repeat fixed linear-gradient(140deg, #5b2bd9 0%, #a51fa6 30%, #f0266f 60%, #ff7a59 85%, #ffb085 100%)"
+  primary-font-family: "'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI', sans-serif"
+  paper-font-common-base_-_font-family: "var(--primary-font-family)"
+  ha-font-family-body: "var(--primary-font-family)"
+  ha-font-family-heading: "var(--primary-font-family)"
+  mush-card-primary-font-size: "15px"
+  mush-card-secondary-font-size: "13px"
+  mush-chip-background: "rgba(255, 255, 255, 0.14)"
+  mush-chip-border-radius: "12px"
+  mush-icon-border-radius: "12px"
+  primary-color: "#ffffff"
+  accent-color: "#ffd166"
+  primary-text-color: "#ffffff"
+  secondary-text-color: "rgba(255, 255, 255, 0.74)"
+  disabled-text-color: "rgba(255, 255, 255, 0.45)"
+  primary-background-color: "#2a1150"
+  secondary-background-color: "rgba(255, 255, 255, 0.10)"
+  card-background-color: "rgba(255, 255, 255, 0.13)"
+  ha-card-background: "rgba(255, 255, 255, 0.13)"
+  ha-card-border-radius: "18px"
+  ha-card-border-width: "0px"
+  ha-card-box-shadow: "none"
+  divider-color: "rgba(255, 255, 255, 0.16)"
+  state-icon-color: "rgba(255, 255, 255, 0.9)"
+  state-active-color: "#ffd166"
+  rgb-state-media-player-color: "255, 209, 102"
+  rgb-state-media-player: "255, 209, 102"
+  rgb-indigo: "255, 209, 102"
+  rgb-state-script-color: "255, 209, 102"
+  app-header-background-color: "transparent"
+  app-header-text-color: "#ffffff"
+  app-header-edit-background-color: "#2a1150"
+  sidebar-background-color: "#22103f"
+  sidebar-text-color: "#ffffff"
+  sidebar-icon-color: "rgba(255, 255, 255, 0.72)"
+  sidebar-selected-text-color: "#ffd166"
+  sidebar-selected-icon-color: "#ffd166"
+  mdc-theme-surface: "#2a1150"
+  input-fill-color: "rgba(255, 255, 255, 0.10)"
+  card-mod-theme: "Athan Glass"
+  card-mod-card: |
+    ha-card {
+      backdrop-filter: blur(18px) saturate(140%);
+      -webkit-backdrop-filter: blur(18px) saturate(140%);
+      border: 1px solid rgba(255, 255, 255, 0.18) !important;
+      box-shadow: 0 10px 30px rgba(40, 0, 60, 0.18) !important;
+    }

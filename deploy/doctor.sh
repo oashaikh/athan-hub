@@ -90,7 +90,9 @@ check "Nginx service" systemctl is-active --quiet nginx.service
 check "Bluetooth service" systemctl is-active --quiet bluetooth.service
 check "mDNS service" systemctl is-active --quiet avahi-daemon.service
 check "Local API health" curl --max-time 10 -fsS http://127.0.0.1:9000/api/health
-check "Web dashboard" curl --max-time 10 -fsS http://127.0.0.1/
+web_port=80
+grep -q '^ATHAN_HA_FRONT_DOOR=1$' "$CONFIG_FILE" 2>/dev/null && web_port=8080
+check "Web dashboard" curl --max-time 10 -fsS "http://127.0.0.1:$web_port/"
 check "Quran resources API" curl --max-time 10 -fsS http://127.0.0.1:9000/api/quran/surahs
 check "Quran reciter catalogue" curl --max-time 10 -fsS http://127.0.0.1:9000/api/quran/recitations
 check "Quran resource checksum and counts" check_quran_resources

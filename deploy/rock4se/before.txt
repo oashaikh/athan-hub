@@ -1,0 +1,21 @@
+no_fail
+log "Provisioning Athan ROCK 4 SE (fresh image, 29 Oct 2026)"
+add_user athan RANDOM_PASSWORD_LOCKED_ON_FIRST_BOOT
+user_append_group athan sudo
+user_append_group athan audio
+user_append_group athan video
+user_append_group athan plugdev
+user_append_group athan render
+user_append_group athan gpio
+user_append_group athan i2c
+user_append_group athan spidev
+user_append_group athan pwm
+user_append_group athan bluetooth
+resize_root
+disable_service smbd
+disable_service nmbd
+disable_service systemd-networkd
+disable_service fstrim.timer
+update_locale en_GB.UTF-8
+enable_service ssh
+remove_packages rsetup-config-first-boot
