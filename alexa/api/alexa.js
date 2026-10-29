@@ -64,7 +64,7 @@ module.exports = (req, res) => {
     } else if (["AMAZON.PauseIntent", "AMAZON.StopIntent", "AMAZON.CancelIntent"].includes(intent)) {
       reply = stop();
     } else if (intent === "AMAZON.HelpIntent") {
-      reply = speak("Say, open call to prayer, or ask call to prayer to play the Fajr athan.", false);
+      reply = speak("Say, open call to prayer, or ask call to prayer to play the morning prayer.", false);
     } else {
       reply = speak("Sorry, Athan Hub can only play the athan.");
     }

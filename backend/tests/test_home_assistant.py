@@ -145,6 +145,6 @@ def test_play_asks_the_alexa_skill_when_configured(monkeypatch, settings) -> Non
 
     assert fake.calls[-1] == ("/api/services/media_player/play_media", {
         "entity_id": "media_player.hallway_echo_pop",
-        "media_content_id": "ask call to prayer to play the fajr athan",
+        "media_content_id": "ask call to prayer to play the morning prayer",
         "media_content_type": "custom",
     })

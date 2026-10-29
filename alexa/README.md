@@ -6,7 +6,7 @@ A private Alexa skill that streams the full-length athan with Alexa's AudioPlaye
 
 - `api/alexa.js` is the skill's endpoint. `athan-audio-sync` deploys it to the same Vercel project as the athan audio, together with a generated `api/_manifest.js` listing the full-length recordings from Home Assistant's `athan/general` and `athan/fajr` media folders.
 - The endpoint only answers requests carrying your skill's ID (`ATHAN_ALEXA_SKILL_ID`).
-- With `ATHAN_HA_PLAYBACK=skill`, Athan Hub asks the Echo, through Home Assistant, to "ask call to prayer to play the athan" (or "the fajr athan"), and the skill streams a randomly chosen recording.
+- With `ATHAN_HA_PLAYBACK=skill`, Athan Hub asks the Echo, through Home Assistant, to "ask call to prayer to play the athan" (or "the morning prayer" for Fajr), and the skill streams a randomly chosen recording.
 - You can also say it yourself: "Alexa, open call to prayer".
 
 ## One-time setup
