@@ -1,0 +1,85 @@
+{
+  "views": [
+    {
+      "title": "Home",
+      "path": "home",
+      "type": "sidebar",
+      "theme": "Athan Glass",
+      "cards": [
+        {
+          "type": "markdown",
+          "view_layout": {"position": "sidebar"},
+          "text_only": true,
+          "content": "<h1 style=\"font-size:3.4em;margin:0;line-height:1\">{{ now().strftime('%H:%M') }}</h1>\n\n{{ now().strftime('%A') }}  \n{{ now().day }} {{ now().strftime('%B') }}\n\n**Week {{ now().isocalendar()[1] }}**\n\n**{% if now().hour < 12 %}Good morning{% elif now().hour < 18 %}Good afternoon{% else %}Good evening{% endif %}**"
+        },
+        {
+          "type": "weather-forecast",
+          "view_layout": {"position": "sidebar"},
+          "entity": "weather.forecast_home",
+          "show_forecast": false
+        },
+        {
+          "type": "markdown",
+          "view_layout": {"position": "sidebar"},
+          "text_only": true,
+          "content": "{% set t = states('sensor.next_prayer_time') %}{% if t not in ['unknown', 'unavailable'] %}{% set mins = ((as_datetime(t) - now()).total_seconds() // 60) | int %}**{{ states('sensor.next_prayer') }}** at {{ as_local(as_datetime(t)).strftime('%H:%M') }}, in {% if mins >= 60 %}{{ mins // 60 }} h {% endif %}{{ mins % 60 }} min{% else %}Next prayer unavailable{% endif %}"
+        },
+        {
+          "type": "tile",
+          "view_layout": {"position": "sidebar"},
+          "entity": "sensor.system_monitor_processor_use",
+          "name": "CPU",
+          "icon": "mdi:cpu-64-bit"
+        },
+        {
+          "type": "sensor",
+          "view_layout": {"position": "sidebar"},
+          "entity": "sensor.system_monitor_memory_usage",
+          "name": "Memory use",
+          "graph": "line",
+          "hours_to_show": 12,
+          "detail": 2
+        },
+        {"type": "heading", "heading": "Athan", "heading_style": "title"},
+        {
+          "type": "grid",
+          "columns": 2,
+          "square": false,
+          "cards": [
+            {"type": "tile", "entity": "sensor.next_prayer", "name": "Next prayer", "icon": "mdi:mosque"},
+            {"type": "tile", "entity": "sensor.next_prayer_time", "name": "Prayer time", "icon": "mdi:clock-outline"},
+            {
+              "type": "tile",
+              "entity": "script.play_athan_on_echo",
+              "name": "Play athan now",
+              "icon": "mdi:play-circle",
+              "tap_action": {"action": "perform-action", "perform_action": "script.play_athan_on_echo", "confirmation": {"text": "Play the athan on the Hallway Echo Pop now?"}}
+            },
+            {"type": "tile", "entity": "sensor.hallway_echo_pop_next_reminder", "name": "Echo reminder", "icon": "mdi:bell-outline"}
+          ]
+        },
+        {"type": "heading", "heading": "Media", "heading_style": "title"},
+        {"type": "media-control", "entity": "media_player.hallway_echo_pop"},
+        {
+          "type": "grid",
+          "columns": 2,
+          "square": false,
+          "cards": [
+            {"type": "tile", "entity": "media_player.osama_s_lg_webos_2020_tv", "name": "TV", "icon": "mdi:television"},
+            {"type": "tile", "entity": "media_player.hallway_echo_pop", "name": "Echo Pop", "features": [{"type": "media-player-volume-slider"}]}
+          ]
+        },
+        {"type": "heading", "heading": "Home", "heading_style": "title"},
+        {
+          "type": "grid",
+          "columns": 2,
+          "square": false,
+          "cards": [
+            {"type": "tile", "entity": "person.admin", "name": "Home"},
+            {"type": "tile", "entity": "sun.sun", "name": "Sun"}
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -42,6 +42,7 @@ ATHAN_HA_URL=http://127.0.0.1:8123
 ATHAN_HA_TOKEN=<token>
 ATHAN_HA_NOTIFY_SERVICE=alexa_media_hallway_echo_pop
 ATHAN_HA_AUDIO_URL=<public Alexa-format MP3 URL>
+ATHAN_HA_FRONT_DOOR=1
 ```
 
 5. Rerun `setup-home-assistant.sh`. It adds the next-prayer sensors, a "Play athan on the Echo" script and an Athan Hub sidebar page. Then run `sudo systemctl restart athan-hub-scheduler`.

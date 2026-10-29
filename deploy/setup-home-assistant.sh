@@ -8,6 +8,7 @@
 # script to add the Home Assistant sensors, script and sidebar dashboard.
 set -Eeuo pipefail
 
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 CONFIG_DIR=/var/lib/homeassistant
 ENV_FILE=/etc/athan-hub/athan-hub.env
 IMAGE=ghcr.io/home-assistant/home-assistant:stable
@@ -29,7 +30,8 @@ if ! command -v docker >/dev/null || [[ "$(docker version -f '{{.Server.Version}
   systemctl enable --now docker
 fi
 
-install -d -m 0755 "$CONFIG_DIR/custom_components" "$CONFIG_DIR/packages"
+install -d -m 0755 "$CONFIG_DIR/custom_components" "$CONFIG_DIR/packages" "$CONFIG_DIR/themes"
+install -m 0644 "$SCRIPT_DIR/homeassistant/themes/athan_glass.yaml" "$CONFIG_DIR/themes/athan_glass.yaml"
 
 if [[ ! -f "$CONFIG_DIR/custom_components/alexa_media/manifest.json" ]]; then
   log "Installing Alexa Media Player"
@@ -44,6 +46,10 @@ fi
 if [[ -f "$CONFIG_DIR/configuration.yaml" ]] && ! grep -q '^  packages:' "$CONFIG_DIR/configuration.yaml"; then
   printf '\nhomeassistant:\n  packages: !include_dir_named packages\n' >> "$CONFIG_DIR/configuration.yaml"
 fi
+# nginx proxies port 80 to Home Assistant when ATHAN_HA_FRONT_DOOR=1.
+if [[ -f "$CONFIG_DIR/configuration.yaml" ]] && ! grep -q '^http:' "$CONFIG_DIR/configuration.yaml"; then
+  printf '\nhttp:\n  use_x_forwarded_for: true\n  trusted_proxies:\n    - 127.0.0.1\n    - ::1\n' >> "$CONFIG_DIR/configuration.yaml"
+fi
 
 ha_value() { sed -n "s/^$1=//p" "$ENV_FILE" 2>/dev/null | head -n 1; }
 notify_service="$(ha_value ATHAN_HA_NOTIFY_SERVICE)"
@@ -51,7 +57,7 @@ audio_url="$(ha_value ATHAN_HA_AUDIO_URL)"
 {
   printf '# Written by athan-hub deploy/setup-home-assistant.sh; edits are overwritten.\n'
   printf 'rest:\n'
-  printf '  - resource: http://127.0.0.1/api/timetable/next\n'
+  printf '  - resource: http://127.0.0.1:9000/api/timetable/next\n'
   printf '    scan_interval: 60\n'
   printf '    sensor:\n'
   printf '      - name: Next prayer\n'
@@ -93,10 +99,12 @@ done
 
 token="$(ha_value ATHAN_HA_TOKEN)"
 if [[ -n "$token" ]]; then
-  log "Adding the Athan Hub sidebar dashboard"
-  host_ip="$(hostname -I | awk '{print $1}')"
-  docker exec -i -e T="$token" -e URL="http://$host_ip/" homeassistant python3 - <<'PY'
-import asyncio, os, aiohttp
+  log "Adding the Home and Athan Hub dashboards"
+  web_port=80
+  [[ "$(ha_value ATHAN_HA_FRONT_DOOR)" == 1 ]] && web_port=8080
+  docker cp "$SCRIPT_DIR/homeassistant/home-dashboard.json" homeassistant:/tmp/home-dashboard.json
+  docker exec -i -e T="$token" -e URL="http://$(hostname).local:$web_port/" homeassistant python3 - <<'PY'
+import asyncio, json, os, aiohttp
 
 async def main():
     async with aiohttp.ClientSession() as session, session.ws_connect("http://127.0.0.1:8123/api/websocket") as ws:
@@ -114,13 +122,19 @@ async def main():
                 if reply.get("id") == message["id"]:
                     return reply
 
-        dashboards = (await call({"type": "lovelace/dashboards/list"}))["result"]
-        if not any(d["url_path"] == "athan-hub" for d in dashboards):
-            await call({"type": "lovelace/dashboards/create", "url_path": "athan-hub", "title": "Athan Hub",
-                        "icon": "mdi:mosque", "show_in_sidebar": True, "require_admin": False, "mode": "storage"})
-        await call({"type": "lovelace/config/save", "url_path": "athan-hub", "config": {"views": [{
-            "title": "Athan Hub", "path": "athan-hub", "type": "panel",
-            "cards": [{"type": "iframe", "url": os.environ["URL"], "aspect_ratio": "100%"}]}]}})
+        await call({"type": "call_service", "domain": "frontend", "service": "reload_themes"})
+        existing = {d["url_path"] for d in (await call({"type": "lovelace/dashboards/list"}))["result"]}
+        dashboards = {
+            "home-dashboard": ("Home", "mdi:home-variant", json.load(open("/tmp/home-dashboard.json"))),
+            "athan-hub": ("Athan Hub", "mdi:mosque", {"views": [{
+                "title": "Athan Hub", "path": "athan-hub", "type": "panel",
+                "cards": [{"type": "iframe", "url": os.environ["URL"], "aspect_ratio": "100%"}]}]}),
+        }
+        for url_path, (title, icon, config) in dashboards.items():
+            if url_path not in existing:
+                await call({"type": "lovelace/dashboards/create", "url_path": url_path, "title": title,
+                            "icon": icon, "show_in_sidebar": True, "require_admin": False, "mode": "storage"})
+            await call({"type": "lovelace/config/save", "url_path": url_path, "config": config})
 
 asyncio.run(main())
 PY

@@ -346,13 +346,26 @@ EOF
   chown root:root "$CONFIG_ROOT/updater.env"
   chmod 0644 "$CONFIG_ROOT/updater.env"
 fi
-install -m 0644 "$INSTALL_ROOT/deploy/nginx/athan-hub.nginx" /etc/nginx/sites-available/athan-hub
+# With ATHAN_HA_FRONT_DOOR=1 Home Assistant answers on port 80 (http://athan.local)
+# and the Athan Hub dashboard moves to port 8080.
+web_port=80
+if grep -q '^ATHAN_HA_FRONT_DOOR=1$' "$CONFIG_ROOT/athan-hub.env"; then
+  web_port=8080
+  install -m 0644 "$INSTALL_ROOT/deploy/nginx/home-assistant.nginx" /etc/nginx/sites-available/home-assistant
+  ln -sfn /etc/nginx/sites-available/home-assistant /etc/nginx/sites-enabled/home-assistant
+else
+  rm -f /etc/nginx/sites-enabled/home-assistant
+fi
+sed -e "s/listen \(\[::\]:\)\{0,1\}80 default_server;/listen \1$web_port default_server;/" \
+  "$INSTALL_ROOT/deploy/nginx/athan-hub.nginx" > /etc/nginx/sites-available/athan-hub
+chmod 0644 /etc/nginx/sites-available/athan-hub
 ln -sfn /etc/nginx/sites-available/athan-hub /etc/nginx/sites-enabled/athan-hub
 rm -f /etc/nginx/sites-enabled/default
 nginx -t
 
 if command -v ufw >/dev/null && ufw status | grep -q '^Status: active'; then
-  ufw allow 80/tcp comment 'Athan Hub dashboard'
+  ufw allow "$web_port/tcp" comment 'Athan Hub dashboard'
+  ufw allow 80/tcp comment 'Dashboard'
   ufw allow 5353/udp comment 'mDNS discovery'
 fi
 
