@@ -50,6 +50,7 @@ def settings(monkeypatch):
         ha_notify_service="alexa_media_hallway_echo_pop",
         ha_audio_url="https://example.com/a/athan.mp3",
         ha_volume=0,
+        ha_playback="clip",
     )
     monkeypatch.setattr(home_assistant, "get_settings", lambda: value)
     monkeypatch.setattr(home_assistant.time, "sleep", lambda _s: None)
@@ -134,3 +135,16 @@ def test_choose_athan_picks_from_the_comma_separated_list(monkeypatch, settings)
     monkeypatch.setattr(home_assistant.random, "choice", lambda options: options[-1])
 
     assert home_assistant.choose_athan("isha") == ["https://example.com/a/two.mp3"]
+
+
+def test_play_asks_the_alexa_skill_when_configured(monkeypatch, settings) -> None:
+    settings.ha_playback = "skill"
+    fake = _install(monkeypatch, _FakeHomeAssistant())
+
+    home_assistant.play(0, prayer="fajr")
+
+    assert fake.calls[-1] == ("/api/services/media_player/play_media", {
+        "entity_id": "media_player.hallway_echo_pop",
+        "media_content_id": "ask athan hub to play the fajr athan",
+        "media_content_type": "custom",
+    })

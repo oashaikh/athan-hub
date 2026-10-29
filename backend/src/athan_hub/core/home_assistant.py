@@ -95,7 +95,7 @@ def play(
     settings = get_settings()
     media_player = f"media_player.{_echo_slug()}"
     dnd_switch = f"switch.{_echo_slug()}_do_not_disturb"
-    parts = choose_athan(prayer)
+    parts = choose_athan(prayer) if settings.ha_playback != "skill" else []
 
     # Home Assistant answers 400/5xx for a minute or so while it restarts, so keep trying.
     deadline = time.monotonic() + retry_seconds
@@ -115,7 +115,13 @@ def play(
                 previous_volume = (echo or {}).get("attributes", {}).get("volume_level")
             if settings.ha_volume and echo is not None:
                 _service("media_player", "volume_set", {"entity_id": media_player, "volume_level": settings.ha_volume / 100})
-            _service("notify", settings.ha_notify_service, {"message": f"<audio src={quoteattr(parts[0])}/>", "data": {"type": "tts"}})
+            if settings.ha_playback == "skill":
+                # Spoken to the Echo as if said aloud; the skill picks and streams the athan.
+                command = "ask athan hub to play the fajr athan" if prayer == "fajr" else "ask athan hub to play the athan"
+                _service("media_player", "play_media", {"entity_id": media_player, "media_content_id": command, "media_content_type": "custom"})
+                parts = [command]
+            else:
+                _service("notify", settings.ha_notify_service, {"message": f"<audio src={quoteattr(parts[0])}/>", "data": {"type": "tts"}})
             break
         except (urllib.error.URLError, OSError, EchoUnavailable):
             if time.monotonic() >= deadline:

@@ -1,0 +1,37 @@
+{
+  "manifest": {
+    "publishingInformation": {
+      "locales": {
+        "en-GB": {
+          "name": "Athan Hub",
+          "summary": "Plays the household athan on this Echo.",
+          "description": "Private skill for Athan Hub. Streams the full-length athan with no time limit.",
+          "examplePhrases": ["Alexa, ask Athan Hub to play the athan"],
+          "keywords": ["athan", "adhan"]
+        }
+      },
+      "isAvailableWorldwide": false,
+      "distributionCountries": ["GB"],
+      "testingInstructions": "Private skill; not for certification.",
+      "category": "LIFESTYLE"
+    },
+    "apis": {
+      "custom": {
+        "endpoint": {
+          "uri": "https://athan-audio.vercel.app/api/alexa",
+          "sslCertificateType": "Wildcard"
+        },
+        "interfaces": [{ "type": "AUDIO_PLAYER" }]
+      }
+    },
+    "manifestVersion": "1.0",
+    "privacyAndCompliance": {
+      "allowsPurchases": false,
+      "usesPersonalInfo": false,
+      "isChildDirected": false,
+      "isExportCompliant": true,
+      "containsAds": false,
+      "locales": { "en-GB": {} }
+    }
+  }
+}
