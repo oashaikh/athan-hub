@@ -167,6 +167,37 @@ sudo systemctl start athan-hub-update.service
 No GitHub token or SSH key is stored on the appliance. Development happens in a
 separate clone; the appliance only receives commits that are already public.
 
+## Home Assistant integration
+
+`custom_components/athan_hub` is a small Home Assistant integration that reads prayer times from a running Athan Hub server. It does not calculate anything itself. Athan Hub stays in charge of the timetable, overrides, exclusions and Bluetooth playback, and Home Assistant gets entities to automate with.
+
+To install it by hand on Home Assistant Container, copy the `custom_components/athan_hub` folder into `/config/custom_components/` and restart Home Assistant. You can also add this repository to HACS as a custom repository of type Integration. Then go to Settings, Devices & services, Add integration, search for Athan Hub and enter the server address. The default is `http://athan.local`. If Home Assistant runs on the Athan Hub machine itself with host networking, `http://127.0.0.1:9000` also works.
+
+The integration polls the server every 60 seconds and creates one device with these entities. Names follow the Mawaqit integration where that was easy, so most Mawaqit automations need only the entity IDs changing.
+
+- `sensor.athan_hub_fajr`, `_shuruq`, `_dhuhr`, `_asr`, `_maghrib` and `_isha` hold today's times as timestamps. An `excluded` attribute shows when Athan Hub will skip the athan for that prayer. A prayer switched off by an override reads `unknown`.
+- `sensor.athan_hub_next_prayer` (for example `Maghrib`) and `sensor.athan_hub_next_prayer_time`.
+- `calendar.athan_hub_prayer_times` lists each prayer for the next seven days as a 15 minute event.
+- `event.athan_hub_prayer` fires at each prayer time, including Shuruq. Its event type is the prayer key, such as `fajr` or `shurooq`, so an automation can filter on it. The integration sets a timer for the exact minute, so the event does not wait for the next poll. If Home Assistant is down at that moment the event is missed.
+- `binary_sensor.athan_hub_athan_playing` is on while the server is playing the athan. It can lag by up to a minute.
+
+The `athan_hub.play_athan` action plays an athan on any media player through `media_player.play_media`. Set the audio URL in the integration's options, or pass `media_content_id` in the call. The speaker has to be able to reach that URL. With no URL set, the action fails with an error that says so. Alexa Echo devices cannot play arbitrary URLs this way, and Athan Hub's built-in Home Assistant mode remains the route for them.
+
+```yaml
+action: athan_hub.play_athan
+data:
+  media_player: media_player.kitchen
+  announce: true
+```
+
+The integration tests use `pytest-homeassistant-custom-component` in a separate virtual environment:
+
+```bash
+python3.14 -m venv .venv-ha
+.venv-ha/bin/pip install pytest-homeassistant-custom-component
+.venv-ha/bin/python -m pytest tests
+```
+
 ## Development
 
 Backend:
