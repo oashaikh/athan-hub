@@ -109,7 +109,22 @@ def tick() -> float:
                 playback_state.write_active(prayer, profile.id, profile.duration_seconds, now_local())
                 try:
                     if use_ha:
-                        result = home_assistant.play(profile.duration_seconds)
+                        try:
+                            result = home_assistant.play(profile.duration_seconds, prayer=prayer)
+                        except Exception as exc:
+                            if not mac:
+                                raise
+                            # Home Assistant or the Echo is down; Bluetooth is the only other path.
+                            logger.warning("Home Assistant playback failed, falling back to Bluetooth: %s", exc)
+                            audit_service.add_entry(db, "WARNING", f"Home Assistant playback failed for {prayer}", {"error": str(exc)})
+                            result = play_once(
+                                mac,
+                                Path(profile.file_path),
+                                pre_connect_seconds=takeover_lead,
+                                connect_retry_seconds=connect_retry,
+                                disconnect_after_play=bluetooth_service._get_bool(db, "disconnect_after_play", False),
+                                sink_volume_percent=sink_volume,
+                            )
                     else:
                         result = play_once(
                             mac,

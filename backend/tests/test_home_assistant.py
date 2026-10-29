@@ -1,11 +1,17 @@
 import json
 from types import SimpleNamespace
 
+import pytest
+
 from athan_hub.core import home_assistant
 
 
 class _Response:
-    status = 200
+    def __init__(self, body: dict | None = None):
+        self._body = json.dumps(body or {}).encode()
+
+    def read(self):
+        return self._body
 
     def __enter__(self):
         return self
@@ -14,49 +20,97 @@ class _Response:
         return None
 
 
-def test_play_sends_ssml_audio_to_notify_service(monkeypatch) -> None:
-    settings = SimpleNamespace(
+class _FakeHomeAssistant:
+    """Answers the few REST calls play() makes and records the service calls."""
+
+    def __init__(self, echo_state="idle", dnd="off", volume=0.8, failures=0):
+        self.states = {
+            "media_player.hallway_echo_pop": {"state": echo_state, "attributes": {"volume_level": volume}},
+            "switch.hallway_echo_pop_do_not_disturb": {"state": dnd},
+        }
+        self.calls = []
+        self.failures = failures
+
+    def urlopen(self, req, timeout):
+        if self.failures:
+            self.failures -= 1
+            raise home_assistant.urllib.error.HTTPError(req.full_url, 400, "Bad Request", None, None)
+        path = req.full_url.split(":8123", 1)[1]
+        if req.get_method() == "GET":
+            return _Response(self.states[path.removeprefix("/api/states/")])
+        self.calls.append((path, json.loads(req.data)))
+        return _Response()
+
+
+@pytest.fixture
+def settings(monkeypatch):
+    value = SimpleNamespace(
         ha_url="http://ha:8123/",
         ha_token="secret",
         ha_notify_service="alexa_media_hallway_echo_pop",
         ha_audio_url="https://example.com/a/athan.mp3",
+        ha_volume=0,
     )
-    monkeypatch.setattr(home_assistant, "get_settings", lambda: settings)
+    monkeypatch.setattr(home_assistant, "get_settings", lambda: value)
     monkeypatch.setattr(home_assistant.time, "sleep", lambda _s: None)
-    sent = []
-    monkeypatch.setattr(home_assistant.urllib.request, "urlopen", lambda req, timeout: sent.append(req) or _Response())
+    return value
+
+
+def _install(monkeypatch, fake):
+    monkeypatch.setattr(home_assistant.urllib.request, "urlopen", fake.urlopen)
+    return fake
+
+
+def test_play_sends_ssml_audio_to_notify_service(monkeypatch, settings) -> None:
+    fake = _install(monkeypatch, _FakeHomeAssistant())
 
     result = home_assistant.play(214)
 
-    request = sent[0]
-    assert request.full_url == "http://ha:8123/api/services/notify/alexa_media_hallway_echo_pop"
-    assert request.get_header("Authorization") == "Bearer secret"
-    assert json.loads(request.data) == {
-        "message": '<audio src="https://example.com/a/athan.mp3"/>',
-        "data": {"type": "tts"},
-    }
+    assert fake.calls == [(
+        "/api/services/notify/alexa_media_hallway_echo_pop",
+        {"message": '<audio src="https://example.com/a/athan.mp3"/>', "data": {"type": "tts"}},
+    )]
     assert result["status"] == "played"
     assert home_assistant.enabled()
 
 
-def test_play_retries_while_home_assistant_restarts(monkeypatch) -> None:
-    settings = SimpleNamespace(
-        ha_url="http://ha:8123",
-        ha_token="secret",
-        ha_notify_service="alexa_media_echo",
-        ha_audio_url="https://example.com/a.mp3",
-    )
-    monkeypatch.setattr(home_assistant, "get_settings", lambda: settings)
-    monkeypatch.setattr(home_assistant.time, "sleep", lambda _s: None)
-    attempts = []
+def test_play_lifts_do_not_disturb_and_restores_volume(monkeypatch, settings) -> None:
+    settings.ha_volume = 60
+    fake = _install(monkeypatch, _FakeHomeAssistant(dnd="on", volume=0.3))
 
-    def urlopen(req, timeout):
-        attempts.append(req)
-        if len(attempts) < 3:
-            raise home_assistant.urllib.error.HTTPError(req.full_url, 400, "Bad Request", None, None)
-        return _Response()
+    home_assistant.play(214)
 
-    monkeypatch.setattr(home_assistant.urllib.request, "urlopen", urlopen)
+    assert [path for path, _ in fake.calls] == [
+        "/api/services/switch/turn_off",
+        "/api/services/media_player/volume_set",
+        "/api/services/notify/alexa_media_hallway_echo_pop",
+        "/api/services/media_player/volume_set",
+        "/api/services/switch/turn_on",
+    ]
+    assert fake.calls[1][1]["volume_level"] == 0.6
+    assert fake.calls[3][1]["volume_level"] == 0.3
+
+
+def test_play_uses_a_per_prayer_audio_url(monkeypatch, settings) -> None:
+    monkeypatch.setenv("ATHAN_HA_AUDIO_URL_FAJR", "https://example.com/a/fajr.mp3")
+    fake = _install(monkeypatch, _FakeHomeAssistant())
+
+    home_assistant.play(0, prayer="fajr")
+    home_assistant.play(0, prayer="isha")
+
+    assert "fajr.mp3" in fake.calls[0][1]["message"]
+    assert "athan.mp3" in fake.calls[1][1]["message"]
+
+
+def test_play_retries_while_home_assistant_restarts(monkeypatch, settings) -> None:
+    fake = _install(monkeypatch, _FakeHomeAssistant(failures=2))
 
     assert home_assistant.play(0)["status"] == "played"
-    assert len(attempts) == 3
+    assert len(fake.calls) == 1
+
+
+def test_play_raises_when_the_echo_stays_unavailable(monkeypatch, settings) -> None:
+    _install(monkeypatch, _FakeHomeAssistant(echo_state="unavailable"))
+
+    with pytest.raises(home_assistant.EchoUnavailable):
+        home_assistant.play(0, retry_seconds=0)
