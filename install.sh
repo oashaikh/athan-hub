@@ -198,9 +198,12 @@ fi
 
 existing_pin=""
 existing_secret=""
+existing_ha=""
 if [[ -r "$CONFIG_ROOT/athan-hub.env" ]]; then
   existing_pin="$(sed -n 's/^ATHAN_PIN=//p' "$CONFIG_ROOT/athan-hub.env" | head -n 1)"
   existing_secret="$(sed -n 's/^ATHAN_PIN_SECRET=//p' "$CONFIG_ROOT/athan-hub.env" | head -n 1)"
+  # Home Assistant output settings are added by hand; keep them across updates.
+  existing_ha="$(grep '^ATHAN_HA_' "$CONFIG_ROOT/athan-hub.env" || true)"
 fi
 generated_pin=""
 case "$PIN_MODE" in
@@ -233,6 +236,7 @@ umask 077
   printf 'ATHAN_PIN=%s\n' "$dashboard_pin"
   printf 'ATHAN_PIN_SECRET=%s\n' "$pin_secret"
   printf 'ATHAN_LOG_LEVEL=INFO\n'
+  [[ -z "$existing_ha" ]] || printf '%s\n' "$existing_ha"
 } > "$CONFIG_ROOT/athan-hub.env"
 chown root:"$SERVICE_USER" "$CONFIG_ROOT/athan-hub.env"
 chmod 0640 "$CONFIG_ROOT/athan-hub.env"

@@ -109,3 +109,17 @@ def test_failed_takeover_still_plays_when_prayer_becomes_due(monkeypatch) -> Non
     scheduler.tick()
 
     assert len(plays) == 1
+
+
+def test_tick_plays_through_home_assistant_without_bluetooth(monkeypatch) -> None:
+    event_time = dt.datetime(2026, 8, 29, 18, 0, tzinfo=dt.timezone.utc)
+    _configure_tick(monkeypatch, [event_time + dt.timedelta(seconds=1)] * 3, event_time)
+    monkeypatch.setattr(scheduler.home_assistant, "enabled", lambda: True)
+    ha_plays: list[float] = []
+    monkeypatch.setattr(scheduler.home_assistant, "play", lambda duration: ha_plays.append(duration) or {"status": "played"})
+    monkeypatch.setattr(scheduler, "prepare_output", lambda *a, **k: (_ for _ in ()).throw(AssertionError("bluetooth used")))
+    monkeypatch.setattr(scheduler, "play_once", lambda *a, **k: (_ for _ in ()).throw(AssertionError("bluetooth used")))
+
+    scheduler.tick()
+
+    assert ha_plays == [180]

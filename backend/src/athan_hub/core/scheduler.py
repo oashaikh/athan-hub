@@ -3,6 +3,7 @@ import math
 import time
 from pathlib import Path
 
+from . import home_assistant
 from .logging import configure_logging
 from .playback import play_once, prepare_output
 from . import playback_state
@@ -56,8 +57,9 @@ def tick() -> float:
         )
         active_keys = {_occurrence_key(*event) for event in events}
         _prepared_occurrences.intersection_update(active_keys)
+        use_ha = home_assistant.enabled()
 
-        if takeover_lead > 0:
+        if takeover_lead > 0 and not use_ha:
             for date_str, prayer, event_time in events:
                 seconds_until = (event_time - now).total_seconds()
                 key = _occurrence_key(date_str, prayer, event_time)
@@ -96,7 +98,7 @@ def tick() -> float:
                 continue
             profile = audio_service.profile_for_prayer(db, prayer)
             mac = bluetooth_service.get_echo_mac(db)
-            if not profile or not mac:
+            if not profile or not (mac or use_ha):
                 logger.warning("Prayer due but audio profile or Echo MAC is missing")
                 continue
             if not profile.duration_seconds:
@@ -106,14 +108,17 @@ def tick() -> float:
             try:
                 playback_state.write_active(prayer, profile.id, profile.duration_seconds, now_local())
                 try:
-                    result = play_once(
-                        mac,
-                        Path(profile.file_path),
-                        pre_connect_seconds=takeover_lead,
-                        connect_retry_seconds=connect_retry,
-                        disconnect_after_play=bluetooth_service._get_bool(db, "disconnect_after_play", False),
-                        sink_volume_percent=sink_volume,
-                    )
+                    if use_ha:
+                        result = home_assistant.play(profile.duration_seconds)
+                    else:
+                        result = play_once(
+                            mac,
+                            Path(profile.file_path),
+                            pre_connect_seconds=takeover_lead,
+                            connect_retry_seconds=connect_retry,
+                            disconnect_after_play=bluetooth_service._get_bool(db, "disconnect_after_play", False),
+                            sink_volume_percent=sink_volume,
+                        )
                 finally:
                     playback_state.clear_active()
                 timetable_service.record_playback(db, date_str, prayer, hhmm)
