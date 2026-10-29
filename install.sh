@@ -203,7 +203,7 @@ if [[ -r "$CONFIG_ROOT/athan-hub.env" ]]; then
   existing_pin="$(sed -n 's/^ATHAN_PIN=//p' "$CONFIG_ROOT/athan-hub.env" | head -n 1)"
   existing_secret="$(sed -n 's/^ATHAN_PIN_SECRET=//p' "$CONFIG_ROOT/athan-hub.env" | head -n 1)"
   # Home Assistant output settings are added by hand; keep them across updates.
-  existing_ha="$(grep -E '^ATHAN_(HA|VERCEL|AUDIO)_' "$CONFIG_ROOT/athan-hub.env" || true)"
+  existing_ha="$(grep -E '^ATHAN_(HA|VERCEL|AUDIO|ALEXA)_' "$CONFIG_ROOT/athan-hub.env" || true)"
 fi
 generated_pin=""
 case "$PIN_MODE" in
