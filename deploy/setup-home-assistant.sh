@@ -31,7 +31,8 @@ if ! command -v docker >/dev/null || [[ "$(docker version -f '{{.Server.Version}
   systemctl enable --now docker
 fi
 
-install -d -m 0755 "$CONFIG_DIR/custom_components" "$CONFIG_DIR/packages" "$CONFIG_DIR/themes" "$CONFIG_DIR/www/community"
+install -d -m 0755 "$CONFIG_DIR/custom_components" "$CONFIG_DIR/packages" "$CONFIG_DIR/themes" "$CONFIG_DIR/www/community" \
+  "$CONFIG_DIR/media/athan/general" "$CONFIG_DIR/media/athan/fajr"
 
 # Dashboard cards, pinned. card-mod is a frontend module so the theme can style every card.
 fetch_card() {
@@ -65,6 +66,11 @@ tv_ip="$(sed -n 's/^ATHAN_HA_TV_IP=//p' "$ENV_FILE" 2>/dev/null | head -n 1)"
 if [[ -n "$tv_ip" && -f "$CONFIG_DIR/.storage/auth" ]] && ! grep -q 'trusted_networks' "$CONFIG_DIR/configuration.yaml"; then
   owner_id="$(python3 -c 'import json,sys; print(next(u["id"] for u in json.load(open(sys.argv[1]))["data"]["users"] if u.get("is_owner")))' "$CONFIG_DIR/.storage/auth")"
   sed -i "/^homeassistant:/a\\  auth_providers:\\n    - type: trusted_networks\\n      trusted_networks:\\n        - $tv_ip/32\\n      trusted_users:\\n        $tv_ip/32: $owner_id\\n      allow_bypass_login: true\\n    - type: homeassistant" "$CONFIG_DIR/configuration.yaml"
+fi
+# Athans are uploaded through Home Assistant's Media panel into media/athan/general
+# and media/athan/fajr; athan-audio-sync publishes them for the Echo.
+if [[ -f "$CONFIG_DIR/configuration.yaml" ]] && ! grep -q 'media_dirs:' "$CONFIG_DIR/configuration.yaml"; then
+  sed -i '/^homeassistant:/a\  media_dirs:\n    local: /config/media' "$CONFIG_DIR/configuration.yaml"
 fi
 # nginx proxies port 80 to Home Assistant when ATHAN_HA_FRONT_DOOR=1.
 if [[ -f "$CONFIG_DIR/configuration.yaml" ]] && ! grep -q '^http:' "$CONFIG_DIR/configuration.yaml"; then
@@ -223,6 +229,16 @@ audio_url="${audio_url%%+*}"  # and only its first part
   fi
 } > "$CONFIG_DIR/packages/athan_hub.yaml"
 
+# --package-only: athan-audio-sync changed the athan URLs; reload the package's
+# scripts and automations without restarting Home Assistant.
+if [[ "${1:-}" == "--package-only" ]]; then
+  token="$(ha_value ATHAN_HA_TOKEN)"
+  for domain in script automation; do
+    curl -fsS -o /dev/null -H "Authorization: Bearer $token" -X POST "http://127.0.0.1:8123/api/services/$domain/reload" || true
+  done
+  exit 0
+fi
+
 # Home Assistant moved http settings from YAML into .storage/http; once migrated the
 # YAML block is ignored, so set the proxy trust there too (with Home Assistant stopped).
 if [[ -f "$CONFIG_DIR/.storage/http" ]]; then
@@ -316,10 +332,10 @@ async def main():
         for dashboard in (await call({"type": "lovelace/dashboards/list"}))["result"]:
             if dashboard["url_path"] == "map":
                 await call({"type": "lovelace/dashboards/delete", "dashboard_id": dashboard["id"]})
-        hidden = ["lovelace", "energy", "history", "logbook", "map", "media-browser", "todo",
+        hidden = ["lovelace", "energy", "history", "logbook", "map", "todo",
                   "climate", "light", "security", "maintenance", "home", "calendar"]
         await call({"type": "frontend/set_user_data", "key": "sidebar",
-                    "value": {"panelOrder": ["home-dashboard", "athan-hub"], "hiddenPanels": hidden}})
+                    "value": {"panelOrder": ["home-dashboard", "athan-hub", "media-browser"], "hiddenPanels": hidden}})
         await call({"type": "frontend/set_user_data", "key": "core", "value": {"default_panel": "home-dashboard"}})
 
 asyncio.run(main())

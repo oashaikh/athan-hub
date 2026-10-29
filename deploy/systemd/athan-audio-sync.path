@@ -1,0 +1,10 @@
+[Unit]
+Description=Watch Home Assistant's athan media folders for uploads
+
+[Path]
+PathChanged=/var/lib/homeassistant/media/athan/general
+PathChanged=/var/lib/homeassistant/media/athan/fajr
+MakeDirectory=yes
+
+[Install]
+WantedBy=multi-user.target

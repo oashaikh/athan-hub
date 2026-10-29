@@ -80,6 +80,20 @@ Add `ATHAN_HA_FRONT_DOOR=1` to make `http://athan.local` open Home Assistant. Th
 
 `sudo bash /opt/athan-hub/deploy/setup-home-assistant.sh` installs Home Assistant in Docker with Alexa Media Player. Once the lines above are set, rerunning it adds next-prayer sensors, a "Play athan on the Echo" script and an Athan Hub sidebar page to Home Assistant. See [docs/ROCK4SE-RECOVERY.md](docs/ROCK4SE-RECOVERY.md) for a full rebuild from a blank SD card.
 
+### Uploading athans
+
+Upload recordings in Home Assistant under **Media → My media → athan**: put general athans in `general` and Fajr athans in `fajr`. Any common audio format works. Within a few seconds `athan-audio-sync` converts each file to Alexa's format, splits anything longer than 240 seconds at a quiet moment, publishes the files to Vercel (Amazon fetches the audio itself, so it has to be public HTTPS) and makes them the random choices for every prayer, with the `fajr` folder used for Fajr. Deleting a file removes it from the rotation.
+
+It needs a Vercel access token in `/etc/athan-hub/athan-hub.env`:
+
+```text
+ATHAN_VERCEL_TOKEN=<token from Vercel, Account Settings, Tokens>
+ATHAN_VERCEL_TEAM=<team slug>
+ATHAN_VERCEL_PROJECT=athan-audio
+```
+
+Without these lines the sync does nothing. Run `sudo athan-audio-sync` to publish straight away.
+
 ### Wi-Fi on a headless machine
 
 The safest approach is to configure Wi-Fi in the Ubuntu installer, cloud-init, or imaging tool before first boot. Ethernet and existing Wi-Fi configuration are never replaced by Athan Hub.
