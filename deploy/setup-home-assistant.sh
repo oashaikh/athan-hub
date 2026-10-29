@@ -82,6 +82,21 @@ audio_url="$(ha_value ATHAN_HA_AUDIO_URL)"
   fi
 } > "$CONFIG_DIR/packages/athan_hub.yaml"
 
+# Home Assistant moved http settings from YAML into .storage/http; once migrated the
+# YAML block is ignored, so set the proxy trust there too (with Home Assistant stopped).
+if [[ -f "$CONFIG_DIR/.storage/http" ]]; then
+  docker stop homeassistant >/dev/null 2>&1 || true
+  python3 - "$CONFIG_DIR/.storage/http" <<'PY'
+import json, sys
+path = sys.argv[1]
+with open(path) as handle:
+    store = json.load(handle)
+store["data"]["stable"].update({"use_x_forwarded_for": True, "trusted_proxies": ["127.0.0.1", "::1"]})
+with open(path, "w") as handle:
+    json.dump(store, handle, indent=2)
+PY
+fi
+
 if ! docker inspect homeassistant >/dev/null 2>&1; then
   log "Starting Home Assistant"
   docker pull -q "$IMAGE"
