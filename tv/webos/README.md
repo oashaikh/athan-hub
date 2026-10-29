@@ -18,10 +18,6 @@ retrying" and tries again every 15 seconds.
 - `build.sh`: checks `appinfo.json`, checks the JavaScript parses as ES5, and
   packages the app into `dist/`. The `dist/` folder is not committed.
 
-The app runs at 1280x720 (`resolution` in `appinfo.json`) and the TV scales it
-up, so the dashboard looks as big on a 4K TV as on a 720p screen. Set it to
-`1920x1080` to fit more on screen at a smaller size.
-
 ## Display modes
 
 `navigate` (the default) replaces the launcher page with the dashboard, so the
