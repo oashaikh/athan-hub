@@ -89,16 +89,18 @@ audio_url="$(ha_value ATHAN_HA_AUDIO_URL)"
   printf '        json_attributes:\n'
   printf '          - prayers\n'
   if [[ -n "$notify_service" ]]; then
-    # Mirror the Echo's next Alexa timer into a Home Assistant timer so the dashboard
-    # can show a live, second-by-second countdown only while one is running.
+    # Mirror each running Alexa timer into its own Home Assistant timer so the
+    # dashboard can show live, second-by-second countdowns only while they run.
+    # ponytail: four slots; raise ECHO_TIMER_SLOTS if more timers ever run at once.
     echo_slug="${notify_service#alexa_media_}"
+    slots=4
     printf 'timer:\n'
-    printf '  echo_timer:\n'
-    printf '    name: Echo timer\n'
-    printf '    icon: mdi:timer-outline\n'
+    for i in $(seq 1 "$slots"); do
+      printf '  echo_timer_%s:\n    name: Timer %s\n    icon: mdi:timer-outline\n' "$i" "$i"
+    done
     printf 'automation:\n'
-    printf '  - id: athan_hub_mirror_echo_timer\n'
-    printf '    alias: Mirror the Echo timer\n'
+    printf '  - id: athan_hub_mirror_echo_timers\n'
+    printf '    alias: Mirror the Echo timers\n'
     printf '    mode: restart\n'
     printf '    triggers:\n'
     printf '      - trigger: state\n'
@@ -107,18 +109,22 @@ audio_url="$(ha_value ATHAN_HA_AUDIO_URL)"
     printf '        event: start\n'
     printf '    actions:\n'
     printf '      - variables:\n'
-    printf '          seconds: "{%% set t = states(%s) %%}{{ ((as_datetime(t) - now()).total_seconds() | int) if t not in [%s, %s] else 0 }}"\n' "'sensor.${echo_slug}_next_timer'" "'unknown'" "'unavailable'"
-    printf '      - if: "{{ seconds | int > 0 }}"\n'
-    printf '        then:\n'
-    printf '          - action: timer.start\n'
-    printf '            target:\n'
-    printf '              entity_id: timer.echo_timer\n'
-    printf '            data:\n'
-    printf '              duration: "{{ seconds }}"\n'
-    printf '        else:\n'
-    printf '          - action: timer.cancel\n'
-    printf '            target:\n'
-    printf '              entity_id: timer.echo_timer\n'
+    printf '          ends: >-\n'
+    printf "            {%% set ns = namespace(out=[]) %%}{%% for t in state_attr('sensor.%s_next_timer', 'sorted_active') or [] %%}{%% set left = (t.triggerTime / 1000 - as_timestamp(now())) | int %%}{%% if left > 0 %%}{%% set ns.out = ns.out + [left] %%}{%% endif %%}{%% endfor %%}{{ ns.out | sort }}\n" "$echo_slug"
+    printf '      - repeat:\n'
+    printf '          for_each: %s\n' "$(seq -s, 1 "$slots" | sed 's/^/[/; s/$/]/')"
+    printf '          sequence:\n'
+    printf '            - if: "{{ ends | count >= repeat.item }}"\n'
+    printf '              then:\n'
+    printf '                - action: timer.start\n'
+    printf '                  target:\n'
+    printf '                    entity_id: "timer.echo_timer_{{ repeat.item }}"\n'
+    printf '                  data:\n'
+    printf '                    duration: "{{ ends[repeat.item - 1] }}"\n'
+    printf '              else:\n'
+    printf '                - action: timer.cancel\n'
+    printf '                  target:\n'
+    printf '                    entity_id: "timer.echo_timer_{{ repeat.item }}"\n'
   fi
   if [[ -n "$notify_service" && -n "$audio_url" ]]; then
     printf 'script:\n'
