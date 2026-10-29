@@ -30,6 +30,8 @@ restore_previous_release() {
   log "Deployment failed; restoring the previous application release"
   systemctl stop athan-hub-api.service athan-hub-scheduler.service || true
   rsync -a --delete --exclude 'backend/venv' "$ROLLBACK_ROOT/app/" "$INSTALL_ROOT/" || true
+  # The snapshot's enabled nginx sites replace whatever the candidate enabled.
+  find /etc/nginx/sites-enabled -maxdepth 1 -type l -delete || true
   tar -xzf "$ROLLBACK_ROOT/system.tar.gz" -C / || true
   if [[ -f "$ROLLBACK_ROOT/data.tar.gz" ]]; then
     tar -xzf "$ROLLBACK_ROOT/data.tar.gz" -C / || true
@@ -126,6 +128,7 @@ tar -C / -czf "$ROLLBACK_ROOT/system.tar.gz" \
   etc/systemd/system/athan-hub-api.service \
   etc/systemd/system/athan-hub-scheduler.service \
   etc/nginx/sites-available/athan-hub \
+  etc/nginx/sites-enabled \
   usr/local/bin/athan-hub-backup \
   usr/local/bin/athan-hub-doctor \
   usr/local/bin/athan-hub-update
@@ -148,7 +151,9 @@ bash "$REPO_ROOT/install.sh" \
 systemctl is-active --quiet athan-hub-api.service
 systemctl is-active --quiet athan-hub-scheduler.service
 curl --max-time 15 -fsS http://127.0.0.1:9000/api/health >/dev/null
-curl --max-time 15 -fsS http://127.0.0.1/ >/dev/null
+web_port=80
+grep -q '^ATHAN_HA_FRONT_DOOR=1$' /etc/athan-hub/athan-hub.env 2>/dev/null && web_port=8080
+curl --max-time 15 -fsS "http://127.0.0.1:$web_port/" >/dev/null
 
 trap - ERR
 rollback_ready=false
