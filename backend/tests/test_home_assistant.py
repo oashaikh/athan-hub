@@ -37,3 +37,26 @@ def test_play_sends_ssml_audio_to_notify_service(monkeypatch) -> None:
     }
     assert result["status"] == "played"
     assert home_assistant.enabled()
+
+
+def test_play_retries_while_home_assistant_restarts(monkeypatch) -> None:
+    settings = SimpleNamespace(
+        ha_url="http://ha:8123",
+        ha_token="secret",
+        ha_notify_service="alexa_media_echo",
+        ha_audio_url="https://example.com/a.mp3",
+    )
+    monkeypatch.setattr(home_assistant, "get_settings", lambda: settings)
+    monkeypatch.setattr(home_assistant.time, "sleep", lambda _s: None)
+    attempts = []
+
+    def urlopen(req, timeout):
+        attempts.append(req)
+        if len(attempts) < 3:
+            raise home_assistant.urllib.error.HTTPError(req.full_url, 400, "Bad Request", None, None)
+        return _Response()
+
+    monkeypatch.setattr(home_assistant.urllib.request, "urlopen", urlopen)
+
+    assert home_assistant.play(0)["status"] == "played"
+    assert len(attempts) == 3
