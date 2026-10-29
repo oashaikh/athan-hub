@@ -27,6 +27,8 @@ Athan Glass:
   state-icon-color: "rgba(255, 255, 255, 0.9)"
   state-active-color: "#ffd166"
   rgb-state-media-player-color: "255, 209, 102"
+  rgb-state-media-player: "255, 209, 102"
+  rgb-indigo: "255, 209, 102"
   rgb-state-script-color: "255, 209, 102"
   app-header-background-color: "transparent"
   app-header-text-color: "#ffffff"
