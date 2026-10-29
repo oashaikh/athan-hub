@@ -2,7 +2,12 @@ import shlex
 import subprocess
 import time
 import re
+from pathlib import Path
 from typing import Dict, Optional, Tuple
+
+from filelock import FileLock, Timeout
+
+from .config import get_settings
 
 
 class BluetoothError(Exception):
@@ -69,36 +74,78 @@ def is_paired(mac: str) -> bool:
     return code == 0 and "paired: yes" in out.lower()
 
 
-def connect(mac: str, retry_seconds: int = 20) -> Dict[str, str]:
-    mac = normalise_mac(mac)
+def _connection_lock_path() -> Path:
+    return get_settings().playback_state_path.parent / "bluetooth-connect.lock"
+
+
+def _wait_for_pending_connection(mac: str, checks: int = 4) -> bool:
+    for _ in range(checks):
+        if is_connected(mac) or detect_sink(mac):
+            return True
+        time.sleep(0.5)
+    return False
+
+
+def _speaker_device_path(mac: str, timeout_seconds: int) -> str:
+    code, out, err = _run(
+        ["busctl", "--system", "--list", "tree", "org.bluez"],
+        timeout_seconds=timeout_seconds,
+    )
+    if code != 0:
+        raise BluetoothError(f"Could not find Bluetooth speaker: {err or out}")
+    device_pattern = rf"/org/bluez/hci\d+/dev_{sink_name_for_mac(mac)}"
+    for line in out.splitlines():
+        path = line.strip()
+        if re.fullmatch(device_pattern, path):
+            return path
+    raise BluetoothError(f"Bluetooth speaker {mac} has not been discovered")
+
+
+def _connect_unlocked(mac: str, retry_seconds: int) -> Dict[str, str]:
     if is_connected(mac) and detect_sink(mac):
         return {"status": "connected", "stdout": "already connected", "stderr": ""}
     deadline = time.time() + retry_seconds
     last_error = ""
     attempt_timeout = min(8, max(1, retry_seconds))
+    device_path = _speaker_device_path(mac, attempt_timeout)
     while time.time() < deadline:
         try:
             code, out, err = _run(
-                ["bluetoothctl", "connect", mac],
+                ["busctl", "--system", "call", "org.bluez", device_path,
+                 "org.bluez.Device1", "ConnectProfile", "s",
+                 "0000110b-0000-1000-8000-00805f9b34fb"],
                 timeout_seconds=attempt_timeout,
             )
         except BluetoothError as exc:
             last_error = str(exc)
-            if is_connected(mac) or detect_sink(mac):
+            if _wait_for_pending_connection(mac):
                 return {"status": "connected", "stdout": "connected after command timeout", "stderr": last_error}
-            time.sleep(2)
             continue
         if code == 0 or "connection successful" in out.lower():
             return {"status": "connected", "stdout": out, "stderr": err}
         err_l = (err or "").lower()
         if "br-connection-busy" in err_l or "in progress" in err_l or "already connected" in out.lower():
-            if is_connected(mac) or detect_sink(mac):
+            if _wait_for_pending_connection(mac):
                 return {"status": "connected", "stdout": out, "stderr": err}
         last_error = err or out
         time.sleep(2)
     if is_connected(mac) or detect_sink(mac):
         return {"status": "connected", "stdout": "connected after retries", "stderr": last_error}
     raise BluetoothError(f"Failed to connect to {mac}: {last_error}")
+
+
+def connect(mac: str, retry_seconds: int = 20) -> Dict[str, str]:
+    mac = normalise_mac(mac)
+    retry_seconds = max(1, int(retry_seconds))
+    lock_path = _connection_lock_path()
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        with FileLock(str(lock_path), timeout=retry_seconds + 2):
+            return _connect_unlocked(mac, retry_seconds)
+    except Timeout as exc:
+        if is_connected(mac) or detect_sink(mac):
+            return {"status": "connected", "stdout": "connected by another request", "stderr": ""}
+        raise BluetoothError("Another Bluetooth connection attempt is still running") from exc
 
 
 def disconnect(mac: str) -> Dict[str, str]:

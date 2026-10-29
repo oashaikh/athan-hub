@@ -1,5 +1,7 @@
 from types import SimpleNamespace
 import subprocess
+import threading
+import time
 
 import pytest
 
@@ -51,6 +53,8 @@ def test_connect_retries_after_one_command_timeout(monkeypatch) -> None:
     monkeypatch.setattr(bluetooth.time, "sleep", lambda _seconds: None)
 
     def fake_run(args, timeout_seconds=35):
+        if args == ["busctl", "--system", "--list", "tree", "org.bluez"]:
+            return 0, "/org/bluez/hci0/dev_AA_BB_CC_DD_EE_FF", ""
         attempts.append(timeout_seconds)
         if len(attempts) == 1:
             raise bluetooth.BluetoothError("Bluetooth command timed out")
@@ -62,6 +66,78 @@ def test_connect_retries_after_one_command_timeout(monkeypatch) -> None:
 
     assert result["status"] == "connected"
     assert attempts == [8, 8]
+
+
+@pytest.mark.parametrize("device_path", [
+    "/org/bluez/hci0/dev_AA_BB_CC_DD_EE_FF",
+    "/org/bluez/hci1/dev_AA_BB_CC_DD_EE_FF",
+])
+def test_connect_uses_speaker_profile_when_other_profiles_are_unavailable(monkeypatch, tmp_path, device_path) -> None:
+    clock = [0.0]
+    connected = False
+    monkeypatch.setattr(bluetooth, "_connection_lock_path", lambda: tmp_path / "connect.lock")
+    monkeypatch.setattr(bluetooth.time, "time", lambda: clock[0])
+    monkeypatch.setattr(bluetooth.time, "sleep", lambda seconds: clock.__setitem__(0, clock[0] + seconds))
+
+    def fake_run(args, **_kwargs):
+        nonlocal connected
+        if args[:2] == ["bluetoothctl", "info"]:
+            return SimpleNamespace(returncode=0, stdout=f"Connected: {'yes' if connected else 'no'}", stderr="")
+        if args[:4] == ["pactl", "list", "short", "sinks"]:
+            sinks = "1\tbluez_output.AA_BB_CC_DD_EE_FF.1\tPipeWire" if connected else ""
+            return SimpleNamespace(returncode=0, stdout=sinks, stderr="")
+        if args == ["busctl", "--system", "--list", "tree", "org.bluez"]:
+            return SimpleNamespace(returncode=0, stdout=f"/org/bluez\n{device_path}\n{device_path}/sep1", stderr="")
+        if args == ["busctl", "--system", "call", "org.bluez", device_path,
+                    "org.bluez.Device1", "ConnectProfile", "s", "0000110b-0000-1000-8000-00805f9b34fb"]:
+            connected = True
+            return SimpleNamespace(returncode=0, stdout="", stderr="")
+        # The Echo advertises additional profiles that this audio transmitter cannot use.
+        return SimpleNamespace(returncode=1, stdout="", stderr="br-connection-profile-unavailable")
+
+    monkeypatch.setattr(bluetooth.subprocess, "run", fake_run)
+
+    assert bluetooth.connect("aa:bb:cc:dd:ee:ff", retry_seconds=4)["status"] == "connected"
+    assert bluetooth.detect_sink("AA:BB:CC:DD:EE:FF") == "bluez_output.AA_BB_CC_DD_EE_FF.1"
+
+
+def test_connect_serializes_attempts_across_callers(monkeypatch, tmp_path) -> None:
+    state_lock = threading.Lock()
+    first_entered = threading.Event()
+    release_first = threading.Event()
+    active = 0
+    maximum_active = 0
+
+    monkeypatch.setattr(bluetooth, "_connection_lock_path", lambda: tmp_path / "bluetooth-connect.lock")
+
+    def fake_connect_unlocked(_mac, _retry_seconds):
+        nonlocal active, maximum_active
+        with state_lock:
+            active += 1
+            maximum_active = max(maximum_active, active)
+            if not first_entered.is_set():
+                first_entered.set()
+        release_first.wait(timeout=1)
+        with state_lock:
+            active -= 1
+        return {"status": "connected", "stdout": "", "stderr": ""}
+
+    monkeypatch.setattr(bluetooth, "_connect_unlocked", fake_connect_unlocked)
+    results = []
+    threads = [
+        threading.Thread(target=lambda: results.append(bluetooth.connect("AA:BB:CC:DD:EE:FF", retry_seconds=2)))
+        for _ in range(2)
+    ]
+    threads[0].start()
+    assert first_entered.wait(timeout=1)
+    threads[1].start()
+    time.sleep(0.05)
+    release_first.set()
+    for thread in threads:
+        thread.join(timeout=2)
+
+    assert len(results) == 2
+    assert maximum_active == 1
 
 
 def test_playback_keeps_speaker_connected_by_default(monkeypatch, tmp_path) -> None:
@@ -117,3 +193,77 @@ def test_playback_waits_for_sink_without_reconnecting_connected_device(monkeypat
 
     assert result["status"] == "played"
     assert reconnects == []
+
+
+def test_prepare_output_claims_sink_without_playing_audio(monkeypatch) -> None:
+    connections = []
+    defaults = []
+    volumes = []
+
+    monkeypatch.setattr(bluetooth, "is_connected", lambda _mac: False)
+    monkeypatch.setattr(
+        bluetooth,
+        "connect",
+        lambda mac, retry_seconds: connections.append((mac, retry_seconds))
+        or {"status": "connected", "stdout": "claimed", "stderr": ""},
+    )
+    monkeypatch.setattr(bluetooth, "detect_sink", lambda _mac: "bluez_output.test")
+    monkeypatch.setattr(bluetooth, "set_default_sink", defaults.append)
+    monkeypatch.setattr(bluetooth, "set_sink_volume", lambda sink, volume: volumes.append((sink, volume)))
+
+    result = playback.prepare_output(
+        "AA:BB:CC:DD:EE:FF",
+        timeout_seconds=30,
+        sink_volume_percent=120,
+    )
+
+    assert result["status"] == "ready"
+    assert connections == [("AA:BB:CC:DD:EE:FF", 30)]
+    assert defaults == ["bluez_output.test"]
+    assert volumes == [("bluez_output.test", 1.2)]
+
+
+def test_prepare_output_reconnects_half_connected_device_without_sink(monkeypatch) -> None:
+    clock = [0.0]
+    state = {"connected": True, "sink_ready": False}
+    disconnects = []
+    connections = []
+
+    monkeypatch.setattr(playback.time, "monotonic", lambda: clock[0])
+    monkeypatch.setattr(playback.time, "sleep", lambda seconds: clock.__setitem__(0, clock[0] + seconds))
+    monkeypatch.setattr(bluetooth, "is_connected", lambda _mac: state["connected"])
+    monkeypatch.setattr(
+        bluetooth,
+        "detect_sink",
+        lambda _mac: "bluez_output.test" if state["sink_ready"] else None,
+    )
+
+    def disconnect(mac):
+        disconnects.append(mac)
+        state["connected"] = False
+        return {"status": "disconnected", "stdout": "", "stderr": ""}
+
+    def connect(mac, retry_seconds):
+        connections.append((mac, retry_seconds))
+        state["connected"] = True
+        state["sink_ready"] = True
+        return {"status": "connected", "stdout": "reconnected", "stderr": ""}
+
+    monkeypatch.setattr(bluetooth, "disconnect", disconnect)
+    monkeypatch.setattr(bluetooth, "connect", connect)
+    monkeypatch.setattr(bluetooth, "set_default_sink", lambda _sink: None)
+    monkeypatch.setattr(bluetooth, "set_sink_volume", lambda _sink, _volume: None)
+
+    result = playback.prepare_output(
+        "AA:BB:CC:DD:EE:FF",
+        timeout_seconds=10,
+        sink_volume_percent=100,
+    )
+
+    assert result == {
+        "status": "ready",
+        "sink": "bluez_output.test",
+        "connect": "reconnected",
+    }
+    assert disconnects == ["AA:BB:CC:DD:EE:FF"]
+    assert connections == [("AA:BB:CC:DD:EE:FF", 7)]

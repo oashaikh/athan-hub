@@ -2,6 +2,7 @@
 
 ## 2.0.0
 
+- Added serialized Bluetooth speaker takeover 30 seconds before each athan, automatic recovery from stale connections without an audio sink, and fixed mobile speaker-setting validation errors.
 - Fixed locally bundled Material Icons rendering as clipped ligature text across the dashboard and navigation.
 - Added a child-safe Quran memorisation workspace with 114 surahs, 6,236 ayahs, translation, transliteration, and 139 pinned QUL recitations.
 - Added admin-created child profiles with independent preferences, progress, sessions, rewards, streaks, badges, and three themes.
@@ -11,6 +12,7 @@
 - Refined stars into meaningful milestones: daily practice, completed surahs, and 10/50/100-ayah memorisation achievements; individual ayahs and repetitions no longer award stars. A completed surah awards one star per ayah.
 - Added an accessible fullscreen control to the public header, including an exit state and graceful browser support detection.
 - Made earned surah stars reversible: changing a completed surah's ayah away from Memorised removes one star, and restoring it restores the star.
+- Surah stars now award as soon as each ayah is marked Memorised instead of waiting for the whole surah, and the "First completed surah" badge is revoked if a completed surah later becomes incomplete.
 
 ## 1.0.0
 

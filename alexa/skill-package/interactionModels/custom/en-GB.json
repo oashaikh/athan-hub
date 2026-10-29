@@ -1,0 +1,105 @@
+{
+  "interactionModel": {
+    "languageModel": {
+      "invocationName": "call to prayer",
+      "intents": [
+        {
+          "name": "PlayAthanIntent",
+          "slots": [
+            {
+              "name": "prayer",
+              "type": "PRAYER"
+            }
+          ],
+          "samples": [
+            "play the athan",
+            "play athan",
+            "play the adhan",
+            "play the {prayer} athan",
+            "play the athan for {prayer}",
+            "play {prayer}",
+            "play the {prayer} prayer",
+            "play {prayer} prayer",
+            "play the {prayer} call to prayer"
+          ]
+        },
+        {
+          "name": "AMAZON.PauseIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.ResumeIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.StopIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.CancelIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.HelpIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.NavigateHomeIntent",
+          "samples": []
+        }
+      ],
+      "types": [
+        {
+          "name": "PRAYER",
+          "values": [
+            {
+              "name": {
+                "value": "fajr",
+                "synonyms": [
+                  "fajir",
+                  "dawn",
+                  "morning",
+                  "morning prayer",
+                  "dawn prayer"
+                ]
+              }
+            },
+            {
+              "name": {
+                "value": "dhuhr",
+                "synonyms": [
+                  "zuhr",
+                  "midday"
+                ]
+              }
+            },
+            {
+              "name": {
+                "value": "asr",
+                "synonyms": [
+                  "afternoon"
+                ]
+              }
+            },
+            {
+              "name": {
+                "value": "maghrib",
+                "synonyms": [
+                  "sunset"
+                ]
+              }
+            },
+            {
+              "name": {
+                "value": "isha",
+                "synonyms": [
+                  "night"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

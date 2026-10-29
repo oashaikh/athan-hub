@@ -108,7 +108,7 @@
                   </div>
                 </div>
                 <div class="form-grid">
-                  <div class="field"><label class="label" for="pre-connect">Pre-connect seconds</label><input id="pre-connect" class="input" type="number" min="0" v-model.number="settings.pre_connect_seconds" /></div>
+                  <div class="field"><label class="label" for="pre-connect">Takeover lead time</label><input id="pre-connect" class="input" type="number" min="0" max="120" v-model.number="settings.pre_connect_seconds" /><p class="field-help">Begin claiming the speaker this many seconds before athan. Recommended: 30.</p></div>
                   <div class="field"><label class="label" for="connect-retry">Retry seconds</label><input id="connect-retry" class="input" type="number" min="0" v-model.number="settings.connect_retry_seconds" /></div>
                 </div>
               </section>
@@ -228,6 +228,7 @@
 import { computed, inject, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import api from '../api'
+import { apiErrorMessage, buildSettingsPayload } from '../settingsPayload'
 import PrayerTable from '../components/PrayerTable.vue'
 import SectionHeader from '../components/SectionHeader.vue'
 import StatusPill from '../components/StatusPill.vue'
@@ -262,7 +263,7 @@ const selectSection = (id: string) => {
 }
 
 const pageLoading = ref(true)
-const settings = reactive<any>({ timezone: 'Europe/London', grace_seconds: 120, echo_mac: '', pre_connect_seconds: 10, connect_retry_seconds: 20, sink_volume_percent: 140, disconnect_after_play: true, dashboard_background: 'bg.png' })
+const settings = reactive<any>({ timezone: 'Europe/London', grace_seconds: 120, echo_mac: '', pre_connect_seconds: 30, connect_retry_seconds: 20, sink_volume_percent: 140, disconnect_after_play: true, dashboard_background: 'bg.png' })
 const bt = reactive<any>({ connected: false })
 const devices = ref<any[]>([])
 const scanning = ref(false)
@@ -289,7 +290,7 @@ const mapping = reactive<Record<string, number | null>>({ fajr: null, dhuhr: nul
 const exclusions = ref<any[]>([])
 const weekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
 const exclusionForm = reactive<any>({ kind: 'date', value: localDateString(todayDate), start: '', end: '', prayer_name: null })
-const err = (error: any, fallback: string) => toast(error.response?.data?.detail || fallback, 'danger')
+const err = (error: any, fallback: string) => toast(apiErrorMessage(error, fallback), 'danger')
 const formatKind = (kind: string) => String(kind || '').replace('_', ' ').replace(/^./, value => value.toUpperCase())
 const formatPrayer = (prayer: string) => prayer.charAt(0).toUpperCase() + prayer.slice(1)
 const formatTs = (value: string) => value ? new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value)) : 'Unknown time'
@@ -328,7 +329,7 @@ const load = async () => {
   await loadManual()
 }
 
-const saveSettings = async () => { try { settings.sink_volume_percent = Math.max(0, Math.min(150, Number(settings.sink_volume_percent))); await api.put('/settings', settings); toast('Settings saved', 'success') } catch (error) { err(error, 'Save failed') } }
+const saveSettings = async () => { try { const payload = buildSettingsPayload(settings); settings.sink_volume_percent = payload.sink_volume_percent; await api.put('/settings', payload); toast('Settings saved', 'success') } catch (error) { err(error, 'Save failed') } }
 const connect = async () => { try { await api.post('/bluetooth/connect'); Object.assign(bt, (await api.get('/bluetooth/status')).data); toast('Connected', 'success') } catch (error) { err(error, 'Connect failed') } }
 const scanDevices = async () => { scanning.value = true; try { devices.value = (await api.post('/bluetooth/scan')).data.devices || []; if (!devices.value.length) toast('No Bluetooth devices found. Confirm pairing mode and try again.', 'warning') } catch (error) { err(error, 'Bluetooth scan failed') } finally { scanning.value = false } }
 const pairDevice = async (device: any) => { pairingMac.value = device.mac; try { await api.post('/bluetooth/pair', { mac: device.mac }); settings.echo_mac = device.mac; Object.assign(bt, (await api.get('/bluetooth/status')).data); toast(`${device.name} paired and connected`, 'success') } catch (error) { err(error, 'Pairing failed') } finally { pairingMac.value = '' } }

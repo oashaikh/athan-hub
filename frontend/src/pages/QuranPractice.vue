@@ -10,9 +10,12 @@
         <div class="rail-heading"><p class="section-kicker">The Quran</p><h1>Choose a surah</h1></div>
         <input v-model="search" type="search" placeholder="Search 114 surahs" aria-label="Search surahs">
         <nav aria-label="Surahs">
-          <button v-for="surah in filteredSurahs" :key="surah.id" type="button" :class="{ active: surah.id === surahId }" @click="selectSurah(surah.id)">
-            <span>{{ surah.id }}</span><strong>{{ surah.name_simple }}</strong><small>{{ surah.translated_name }}</small>
-          </button>
+          <template v-for="group in juzGroups" :key="group.juz">
+            <h3 class="juz-heading">Juz {{ group.juz }}</h3>
+            <button v-for="surah in group.surahs" :key="surah.id" type="button" :class="{ active: surah.id === surahId }" @click="selectSurah(surah.id)">
+              <span>{{ surah.id }}</span><strong>{{ surah.name_simple }}</strong><small>{{ surah.translated_name }}</small>
+            </button>
+          </template>
         </nav>
       </aside>
 
@@ -21,9 +24,9 @@
         <div v-if="error" class="reader-error" role="status"><span class="material-icons">error_outline</span><span>{{ error }}</span><button type="button" @click="retry">Retry</button></div>
         <div v-if="loading" class="reader-message">Loading verses…</div>
         <div v-else class="verse-list">
-          <article v-for="verse in selectedVerses" :key="verse.verse_key" class="verse" :class="progressState(verse.verse_key)">
+          <article v-for="verse in selectedVerses" :key="verse.verse_key" :ref="el => setVerseEl(verse.verse_key, el)" class="verse" :class="[progressState(verse.verse_key), { playing: verse.verse_key === highlightedVerse }]">
             <span class="verse-number">{{ verse.ayah_number }}</span>
-            <p v-if="profile.show_arabic && (!profile.recall_mode || (listenCounts[verse.verse_key] || 0) < profile.repetitions || revealed.has(verse.verse_key))" class="arabic" dir="rtl">{{ verse.arabic }}</p>
+            <p v-if="profile.show_arabic && (!profile.recall_mode || (listenCounts[verse.verse_key] || 0) < profile.repetitions || revealed.has(verse.verse_key))" class="arabic" dir="rtl"><span v-for="(word, index) in arabicWords(verse.arabic)" :key="`${verse.verse_key}-${index}`" class="arabic-word" :class="{ 'active-word': index === activeWordIndex(verse) }">{{ word }}{{ index < arabicWords(verse.arabic).length - 1 ? ' ' : '' }}</span></p>
             <button v-else-if="profile.show_arabic" type="button" class="reveal" @click="revealed.add(verse.verse_key)">Reveal Arabic</button>
             <p v-if="profile.show_translation" class="translation">{{ verse.translation }}</p>
             <p v-if="profile.show_transliteration" class="transliteration">{{ verse.transliteration }}</p>
@@ -34,7 +37,7 @@
             </div>
           </article>
         </div>
-        <QuranPlayer v-if="recitation && selectedVerses.length" :profile-id="profile.id" :recitation="recitation" :verses="selectedVerses" :repetitions="profile.repetitions" :playback-speed="profile.playback_speed" @playback-started="startSession" @repetition-complete="repetition" @range-complete="completeSession" @playback-error="showError" />
+        <QuranPlayer v-if="recitation && selectedVerses.length" :profile-id="profile.id" :recitation="recitation" :verses="selectedVerses" :repetitions="profile.repetitions" :playback-speed="profile.playback_speed" @playback-started="startSession" @repetition-complete="repetition" @range-complete="completeSession" @playback-error="showError" @verse-highlight="key => highlightedVerse = key" @word-progress="progress => wordProgress = progress" />
       </section>
 
       <aside class="practice-panel" :class="{ 'mobile-open': practiceOpen }">
@@ -52,26 +55,36 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import api from '../api'
 import ChildHeader from '../components/ChildHeader.vue'
 import QuranPlayer from '../components/QuranPlayer.vue'
 import RewardSummary from '../components/RewardSummary.vue'
 import { useProfileStore } from '../stores/profile'
+import { groupSurahsByJuz } from '../quranJuz'
+import { prefersReducedMotion } from '../motion'
 
-const store = useProfileStore(), surahs = ref<any[]>([]), recitations = ref<any[]>([]), verses = ref<any[]>([]), rewards = ref<any>(null), leaderboard = ref<any>(null), search = ref(''), loading = ref(true), error = ref(''), revealed = reactive(new Set<string>()), listenCounts = reactive<Record<string,number>>({}), progress = ref<any[]>([]), sessionId = ref<number | null>(null), sessionRepetitions = ref(0), surahOpen = ref(false), practiceOpen = ref(false)
+const store = useProfileStore(), surahs = ref<any[]>([]), recitations = ref<any[]>([]), verses = ref<any[]>([]), rewards = ref<any>(null), leaderboard = ref<any>(null), search = ref(''), loading = ref(true), error = ref(''), revealed = reactive(new Set<string>()), listenCounts = reactive<Record<string,number>>({}), progress = ref<any[]>([]), sessionId = ref<number | null>(null), sessionRepetitions = ref(0), surahOpen = ref(false), practiceOpen = ref(false), highlightedVerse = ref<string | null>(null), wordProgress = ref<{ verseKey: string; fraction?: number; wordIndex?: number } | null>(null)
 let sessionStartedAt = 0
 let repetitionQueue: Promise<void> = Promise.resolve()
 let initialising = true
 const profile = computed(() => store.selected.value), surahId = ref(1)
 const selectedSurah = computed(() => surahs.value.find(row => row.id === surahId.value))
 const filteredSurahs = computed(() => surahs.value.filter(row => `${row.name_simple} ${row.translated_name}`.toLowerCase().includes(search.value.toLowerCase())))
+const juzGroups = computed(() => groupSurahsByJuz(filteredSurahs.value))
 const selectedVerses = computed(() => verses.value.filter(row => !profile.value || (row.ayah_number >= profile.value.start_ayah && row.ayah_number <= profile.value.end_ayah)))
 const recitation = computed(() => recitations.value.find(row => row.id === profile.value?.preferred_recitation_id) || recitations.value[0])
 const capabilityLabel = (row: any) => row.capability === 'ayah' ? 'Verse audio' : row.capability === 'segmented_surah' ? 'Timed surah' : 'Whole surah'
 const recommendation = (row:any) => row.recommended === 'muallim' ? ' · recommended for memorisation' : row.recommended === 'kids_repeat' ? ' · recommended for younger children' : ''
 const capabilityNote = (row: any) => row.capability === 'surah' ? ' — exact verse looping is unavailable for this recording.' : ' — supports the selected practice range.'
 const progressState = (key: string) => progress.value.find(row => row.verse_key === key)?.state || ''
+const arabicWords = (arabic: string) => arabic.split(/\s+/).filter(Boolean)
+const activeWordIndex = (verse: any) => {
+  const words = arabicWords(verse.arabic), currentProgress = wordProgress.value
+  if (!words.length || !currentProgress || verse.verse_key !== highlightedVerse.value || currentProgress.verseKey !== verse.verse_key) return -1
+  const index = currentProgress.wordIndex ?? Math.floor((currentProgress.fraction ?? 0) * words.length)
+  return Math.min(words.length - 1, Math.max(0, index))
+}
 const message = (caught:any, fallback:string) => caught?.response?.status === 507 ? 'The Quran audio cache is full. Ask an admin to free space or raise its limit.' : caught?.response?.data?.detail || fallback
 const showError = (value:string) => { error.value = value }
 const closePanels = () => { surahOpen.value = false; practiceOpen.value = false }
@@ -83,7 +96,10 @@ const repetition = (key: string) => { if (!profile.value) return; const profileI
 const mark = async (verse: any, state: string) => { if (!profile.value) return; const existing = progress.value.find(row => row.verse_key === verse.verse_key); try { await api.put(`/quran/profiles/${profile.value.id}/progress/${verse.verse_key}`, { state, completed_repetitions: existing?.completed_repetitions || 0 }); await loadProfile() } catch (caught) { error.value = message(caught, 'Memorisation progress could not be saved.') } }
 const loadProfile = async () => { if (!profile.value) return; const [detail, rewardResult, leaderboardResult] = await Promise.all([api.get(`/quran/profiles/${profile.value.id}`), api.get(`/quran/profiles/${profile.value.id}/rewards`), api.get('/quran/leaderboard')]); progress.value = detail.data.progress; rewards.value = rewardResult.data; leaderboard.value = leaderboardResult.data }
 const completeSession = async () => { if (!profile.value || !sessionId.value) return; const elapsed = Math.max(1, Math.round((Date.now() - sessionStartedAt) / 1000)); const completedRepetitions = recitation.value?.capability === 'surah' ? 1 : sessionRepetitions.value; try { await repetitionQueue; await api.put(`/quran/profiles/${profile.value.id}/sessions/${sessionId.value}`, { repetitions: completedRepetitions, practice_seconds: elapsed, completed: true }); sessionId.value = null; sessionRepetitions.value = 0; await loadProfile() } catch (caught) { error.value = message(caught, 'Practice completion could not be saved.') } }
+const verseEls = reactive<Record<string, Element>>({})
+const setVerseEl = (key: string, el: Element | { $el: Element } | null) => { if (el) verseEls[key] = el instanceof Element ? el : el.$el }
 const retry = () => loadVerses(false)
+watch(highlightedVerse, async key => { if (!key) return; await nextTick(); verseEls[key]?.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'center' }) })
 watch(surahId, () => { if (!initialising) loadVerses(true) })
 watch(profile, async (value, oldValue) => { if (!initialising && value && value.id !== oldValue?.id) { initialising = true; surahId.value = value.last_surah_id; await loadProfile(); await loadVerses(false); initialising = false } })
 onMounted(async () => { try { await Promise.all([store.load(), api.get('/quran/surahs').then(r => surahs.value = r.data), api.get('/quran/recitations').then(r => recitations.value = r.data)]); if (profile.value) { surahId.value = profile.value.last_surah_id; await loadProfile(); await loadVerses(false) } else loading.value = false } catch (caught) { error.value = message(caught, 'Quran practice could not be loaded.'); loading.value = false } finally { initialising = false } })
