@@ -151,6 +151,22 @@ async def main():
                             "icon": icon, "show_in_sidebar": True, "require_admin": False, "mode": "storage"})
             await call({"type": "lovelace/config/save", "url_path": url_path, "config": config})
 
+        # Keep Home Assistant uncluttered: drop onboarding's empty example areas and Map
+        # dashboard, and show only the Home and Athan Hub dashboards in the sidebar.
+        devices = (await call({"type": "config/device_registry/list"}))["result"]
+        used_areas = {d["area_id"] for d in devices if d["area_id"]}
+        for area in (await call({"type": "config/area_registry/list"}))["result"]:
+            if area["area_id"] in {"living_room", "kitchen", "bedroom"} and area["area_id"] not in used_areas:
+                await call({"type": "config/area_registry/delete", "area_id": area["area_id"]})
+        for dashboard in (await call({"type": "lovelace/dashboards/list"}))["result"]:
+            if dashboard["url_path"] == "map":
+                await call({"type": "lovelace/dashboards/delete", "dashboard_id": dashboard["id"]})
+        hidden = ["lovelace", "energy", "history", "logbook", "map", "media-browser", "todo",
+                  "climate", "light", "security", "maintenance", "home"]
+        await call({"type": "frontend/set_user_data", "key": "sidebar",
+                    "value": {"panelOrder": ["home-dashboard", "athan-hub"], "hiddenPanels": hidden}})
+        await call({"type": "frontend/set_user_data", "key": "core", "value": {"default_panel": "home-dashboard"}})
+
 asyncio.run(main())
 PY
 else
