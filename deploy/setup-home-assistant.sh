@@ -74,6 +74,8 @@ fi
 ha_value() { sed -n "s/^$1=//p" "$ENV_FILE" 2>/dev/null | head -n 1; }
 notify_service="$(ha_value ATHAN_HA_NOTIFY_SERVICE)"
 audio_url="$(ha_value ATHAN_HA_AUDIO_URL)"
+audio_url="${audio_url%%,*}"  # the on-demand script plays the first athan in the list
+audio_url="${audio_url%%+*}"  # and only its first part
 {
   printf '# Written by athan-hub deploy/setup-home-assistant.sh; edits are overwritten.\n'
   printf 'rest:\n'

@@ -1,5 +1,6 @@
 import json
 import os
+import random
 import time
 import urllib.error
 import urllib.request
@@ -23,12 +24,33 @@ def _echo_slug() -> str:
 
 
 def audio_url(prayer: Optional[str] = None) -> str:
-    """The hosted athan for this prayer: ATHAN_HA_AUDIO_URL_<PRAYER> if set, else ATHAN_HA_AUDIO_URL."""
+    """The athan setting for this prayer: ATHAN_HA_AUDIO_URL_<PRAYER> if set, else ATHAN_HA_AUDIO_URL.
+
+    The value is a comma-separated list of athans to choose from at random. An athan
+    longer than Alexa's 240-second limit is split into parts joined with "+", which are
+    played back to back.
+    """
     if prayer:
         override = os.environ.get(f"ATHAN_HA_AUDIO_URL_{prayer.upper()}", "")
         if override:
             return override
     return get_settings().ha_audio_url
+
+
+def choose_athan(prayer: Optional[str] = None) -> list[str]:
+    """Pick one athan at random for this prayer and return its part URLs in order."""
+    choices = [choice.strip() for choice in audio_url(prayer).split(",") if choice.strip()]
+    return [part.strip() for part in random.choice(choices).split("+") if part.strip()]
+
+
+def part_seconds(url: str, fallback: float) -> float:
+    """Playing time of a hosted part, from its size: Alexa's format is constant 48 kbps (6000 bytes/s)."""
+    try:
+        with urllib.request.urlopen(urllib.request.Request(url, method="HEAD"), timeout=10) as response:
+            size = int(response.headers.get("Content-Length") or 0)
+        return size / 6000 if size else fallback
+    except (urllib.error.URLError, OSError, ValueError):
+        return fallback
 
 
 def _call(method: str, path: str, payload: Optional[dict] = None, timeout_seconds: int = 20) -> Any:
@@ -73,7 +95,7 @@ def play(
     settings = get_settings()
     media_player = f"media_player.{_echo_slug()}"
     dnd_switch = f"switch.{_echo_slug()}_do_not_disturb"
-    url = audio_url(prayer)
+    parts = choose_athan(prayer)
 
     # Home Assistant answers 400/5xx for a minute or so while it restarts, so keep trying.
     deadline = time.monotonic() + retry_seconds
@@ -93,14 +115,21 @@ def play(
                 previous_volume = (echo or {}).get("attributes", {}).get("volume_level")
             if settings.ha_volume and echo is not None:
                 _service("media_player", "volume_set", {"entity_id": media_player, "volume_level": settings.ha_volume / 100})
-            _service("notify", settings.ha_notify_service, {"message": f"<audio src={quoteattr(url)}/>", "data": {"type": "tts"}})
+            _service("notify", settings.ha_notify_service, {"message": f"<audio src={quoteattr(parts[0])}/>", "data": {"type": "tts"}})
             break
         except (urllib.error.URLError, OSError, EchoUnavailable):
             if time.monotonic() >= deadline:
                 raise
             time.sleep(5)
 
-    time.sleep(max(0.0, duration_seconds))
+    if len(parts) == 1:
+        time.sleep(max(0.0, duration_seconds))
+    else:
+        # Each later part is sent as the previous one ends; Alexa queues nothing itself.
+        for previous, part in zip(parts, parts[1:]):
+            time.sleep(part_seconds(previous, duration_seconds / len(parts)))
+            _service("notify", settings.ha_notify_service, {"message": f"<audio src={quoteattr(part)}/>", "data": {"type": "tts"}})
+        time.sleep(part_seconds(parts[-1], 0))
     try:
         if settings.ha_volume and previous_volume is not None:
             _service("media_player", "volume_set", {"entity_id": media_player, "volume_level": previous_volume})
@@ -112,7 +141,7 @@ def play(
         "status": "played",
         "output": "home_assistant",
         "service": settings.ha_notify_service,
-        "audio_url": url,
+        "audio_url": "+".join(parts),
         "dnd_lifted": dnd_was_on,
         "volume": settings.ha_volume or None,
     }

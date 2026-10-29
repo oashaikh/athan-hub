@@ -114,3 +114,23 @@ def test_play_raises_when_the_echo_stays_unavailable(monkeypatch, settings) -> N
 
     with pytest.raises(home_assistant.EchoUnavailable):
         home_assistant.play(0, retry_seconds=0)
+
+
+def test_play_picks_a_random_athan_and_plays_its_parts_in_order(monkeypatch, settings) -> None:
+    settings.ha_audio_url = "https://example.com/a/one.mp3"
+    monkeypatch.setenv("ATHAN_HA_AUDIO_URL_FAJR", "https://example.com/a/fajr-a.mp3+https://example.com/a/fajr-b.mp3")
+    monkeypatch.setattr(home_assistant, "part_seconds", lambda url, fallback: 1.0)
+    fake = _install(monkeypatch, _FakeHomeAssistant())
+
+    result = home_assistant.play(0, prayer="fajr")
+
+    messages = [data["message"] for path, data in fake.calls if "notify" in path]
+    assert messages == ['<audio src="https://example.com/a/fajr-a.mp3"/>', '<audio src="https://example.com/a/fajr-b.mp3"/>']
+    assert result["audio_url"].endswith("fajr-b.mp3")
+
+
+def test_choose_athan_picks_from_the_comma_separated_list(monkeypatch, settings) -> None:
+    settings.ha_audio_url = "https://example.com/a/one.mp3, https://example.com/a/two.mp3"
+    monkeypatch.setattr(home_assistant.random, "choice", lambda options: options[-1])
+
+    assert home_assistant.choose_athan("isha") == ["https://example.com/a/two.mp3"]
