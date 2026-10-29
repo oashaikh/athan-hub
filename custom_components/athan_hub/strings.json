@@ -1,0 +1,55 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to Athan Hub",
+        "description": "Enter the address of your Athan Hub server.",
+        "data": {
+          "url": "Athan Hub URL"
+        },
+        "data_description": {
+          "url": "For example http://athan.local, or http://127.0.0.1:9000 when Home Assistant runs on the same machine."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Could not reach Athan Hub at that address."
+    },
+    "abort": {
+      "already_configured": "This Athan Hub server is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Athan Hub options",
+        "data": {
+          "athan_url": "Athan audio URL"
+        },
+        "data_description": {
+          "athan_url": "MP3 URL or media-source URI played by the athan_hub.play_athan action. Your speakers must be able to reach it."
+        }
+      }
+    }
+  },
+  "services": {
+    "play_athan": {
+      "name": "Play athan",
+      "description": "Plays the athan on one or more media players.",
+      "fields": {
+        "media_player": {
+          "name": "Media player",
+          "description": "Media players to play the athan on."
+        },
+        "media_content_id": {
+          "name": "Audio URL",
+          "description": "Overrides the athan audio URL set in the integration options."
+        },
+        "announce": {
+          "name": "Announce",
+          "description": "Play as an announcement and resume the previous media afterwards, where the player supports it."
+        }
+      }
+    }
+  }
+}
