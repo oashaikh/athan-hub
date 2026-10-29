@@ -1,32 +1,48 @@
-# Gradient glass theme for the Home dashboard. Select it under Profile > Theme,
-# or per dashboard view (the Home dashboard sets it on its view).
+# Gradient glass theme for the Home dashboard. card-mod (loaded by
+# setup-home-assistant.sh as a frontend module) adds the frosted blur and border.
 Athan Glass:
-  lovelace-background: "center / cover no-repeat fixed linear-gradient(140deg, #6a2ce8 0%, #b81ba0 32%, #ff2a6d 62%, #ff8d5c 88%, #ffb38a 100%)"
+  lovelace-background: "center / cover no-repeat fixed linear-gradient(140deg, #5b2bd9 0%, #a51fa6 30%, #f0266f 60%, #ff7a59 85%, #ffb085 100%)"
+  primary-font-family: "'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI', sans-serif"
+  paper-font-common-base_-_font-family: "var(--primary-font-family)"
+  ha-font-family-body: "var(--primary-font-family)"
+  ha-font-family-heading: "var(--primary-font-family)"
+  mush-card-primary-font-size: "15px"
+  mush-card-secondary-font-size: "13px"
+  mush-chip-background: "rgba(255, 255, 255, 0.14)"
+  mush-chip-border-radius: "12px"
+  mush-icon-border-radius: "12px"
   primary-color: "#ffffff"
   accent-color: "#ffd166"
   primary-text-color: "#ffffff"
-  secondary-text-color: "rgba(255, 255, 255, 0.72)"
+  secondary-text-color: "rgba(255, 255, 255, 0.74)"
   disabled-text-color: "rgba(255, 255, 255, 0.45)"
-  primary-background-color: "#3b1660"
+  primary-background-color: "#2a1150"
   secondary-background-color: "rgba(255, 255, 255, 0.10)"
-  card-background-color: "rgba(255, 255, 255, 0.14)"
-  ha-card-background: "rgba(255, 255, 255, 0.14)"
-  ha-card-border-radius: "14px"
+  card-background-color: "rgba(255, 255, 255, 0.13)"
+  ha-card-background: "rgba(255, 255, 255, 0.13)"
+  ha-card-border-radius: "18px"
   ha-card-border-width: "0px"
   ha-card-box-shadow: "none"
-  ha-tile-icon-border-radius: "50%"
-  divider-color: "rgba(255, 255, 255, 0.18)"
-  state-icon-color: "rgba(255, 255, 255, 0.85)"
+  divider-color: "rgba(255, 255, 255, 0.16)"
+  state-icon-color: "rgba(255, 255, 255, 0.9)"
   state-active-color: "#ffd166"
+  rgb-state-media-player-color: "255, 209, 102"
+  rgb-state-script-color: "255, 209, 102"
   app-header-background-color: "transparent"
   app-header-text-color: "#ffffff"
-  app-header-edit-background-color: "#3b1660"
-  sidebar-background-color: "#2c1048"
+  app-header-edit-background-color: "#2a1150"
+  sidebar-background-color: "#22103f"
   sidebar-text-color: "#ffffff"
-  sidebar-icon-color: "rgba(255, 255, 255, 0.75)"
+  sidebar-icon-color: "rgba(255, 255, 255, 0.72)"
   sidebar-selected-text-color: "#ffd166"
   sidebar-selected-icon-color: "#ffd166"
-  paper-listbox-background-color: "#3b1660"
-  mdc-theme-surface: "#3b1660"
+  mdc-theme-surface: "#2a1150"
   input-fill-color: "rgba(255, 255, 255, 0.10)"
-  codemirror-property: "#ffd166"
+  card-mod-theme: "Athan Glass"
+  card-mod-card: |
+    ha-card {
+      backdrop-filter: blur(18px) saturate(140%);
+      -webkit-backdrop-filter: blur(18px) saturate(140%);
+      border: 1px solid rgba(255, 255, 255, 0.18) !important;
+      box-shadow: 0 10px 30px rgba(40, 0, 60, 0.18) !important;
+    }
