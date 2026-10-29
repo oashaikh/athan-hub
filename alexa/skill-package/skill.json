@@ -15,6 +15,62 @@
           ],
           "smallIconUri": "https://athan-audio.vercel.app/icons/small.png",
           "largeIconUri": "https://athan-audio.vercel.app/icons/large.png"
+        },
+        "en-US": {
+          "name": "Athan Hub",
+          "summary": "Plays the household athan on this Echo.",
+          "description": "Private skill for Athan Hub. Streams the full-length athan with no time limit.",
+          "examplePhrases": [
+            "Alexa, ask Athan Hub to play the athan"
+          ],
+          "keywords": [
+            "athan",
+            "adhan"
+          ],
+          "smallIconUri": "https://athan-audio.vercel.app/icons/small.png",
+          "largeIconUri": "https://athan-audio.vercel.app/icons/large.png"
+        },
+        "en-IN": {
+          "name": "Athan Hub",
+          "summary": "Plays the household athan on this Echo.",
+          "description": "Private skill for Athan Hub. Streams the full-length athan with no time limit.",
+          "examplePhrases": [
+            "Alexa, ask Athan Hub to play the athan"
+          ],
+          "keywords": [
+            "athan",
+            "adhan"
+          ],
+          "smallIconUri": "https://athan-audio.vercel.app/icons/small.png",
+          "largeIconUri": "https://athan-audio.vercel.app/icons/large.png"
+        },
+        "en-AU": {
+          "name": "Athan Hub",
+          "summary": "Plays the household athan on this Echo.",
+          "description": "Private skill for Athan Hub. Streams the full-length athan with no time limit.",
+          "examplePhrases": [
+            "Alexa, ask Athan Hub to play the athan"
+          ],
+          "keywords": [
+            "athan",
+            "adhan"
+          ],
+          "smallIconUri": "https://athan-audio.vercel.app/icons/small.png",
+          "largeIconUri": "https://athan-audio.vercel.app/icons/large.png"
+        },
+        "en-CA": {
+          "name": "Athan Hub",
+          "summary": "Plays the household athan on this Echo.",
+          "description": "Private skill for Athan Hub. Streams the full-length athan with no time limit.",
+          "examplePhrases": [
+            "Alexa, ask Athan Hub to play the athan"
+          ],
+          "keywords": [
+            "athan",
+            "adhan"
+          ],
+          "smallIconUri": "https://athan-audio.vercel.app/icons/small.png",
+          "largeIconUri": "https://athan-audio.vercel.app/icons/large.png"
         }
       },
       "isAvailableWorldwide": false,
@@ -45,7 +101,11 @@
       "isExportCompliant": true,
       "containsAds": false,
       "locales": {
-        "en-GB": {}
+        "en-GB": {},
+        "en-US": {},
+        "en-IN": {},
+        "en-AU": {},
+        "en-CA": {}
       }
     }
   }
