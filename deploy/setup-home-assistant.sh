@@ -212,8 +212,9 @@ audio_url="${audio_url%%+*}"  # and only its first part
     printf '        entity_id: media_player.%s\n' "${notify_service#alexa_media_}"
     printf '        attribute: last_called_summary\n'
     printf '    conditions:\n'
+    # The skill handles "call to prayer" itself, including Athan Hub's own text commands.
     printf "      - condition: template\n"
-    printf "        value_template: \"{{ trigger.to_state.attributes.last_called_summary | lower | regex_search('athan|adhan|azan|adan') }}\"\n"
+    printf "        value_template: \"{{ trigger.to_state.attributes.last_called_summary | lower | regex_search('athan|adhan|azan|adan') and 'call to prayer' not in trigger.to_state.attributes.last_called_summary | lower }}\"\n"
     printf '    actions:\n'
     printf '      - action: script.play_athan_on_echo\n'
     printf 'script:\n'
