@@ -20,6 +20,7 @@ log() { printf '\n==> %s\n' "$*"; }
 if ! command -v docker >/dev/null || [[ "$(docker version -f '{{.Server.Version}}' 2>/dev/null | cut -d. -f1)" -lt 23 ]]; then
   log "Installing Docker from download.docker.com"
   apt-get remove -y docker.io >/dev/null 2>&1 || true
+  # shellcheck source=/dev/null
   . /etc/os-release
   install -m 0755 -d /etc/apt/keyrings
   curl -fsSL "https://download.docker.com/linux/$ID/gpg" | gpg --dearmor --yes -o /etc/apt/keyrings/docker.gpg

@@ -8,7 +8,7 @@
           "url": "Athan Hub URL"
         },
         "data_description": {
-          "url": "For example http://athan.local, or http://127.0.0.1:9000 when Home Assistant runs on the same machine."
+          "url": "The address of your Athan Hub server, for example athan.local, or 127.0.0.1 port 9000 when Home Assistant runs on the same machine."
         }
       }
     },
