@@ -1,0 +1,11 @@
+[Unit]
+Description=Athan first-boot setup
+After=rsetup.service
+ConditionPathExists=!/etc/sudoers.d/90-athan
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/athan-firstboot.sh
+
+[Install]
+WantedBy=multi-user.target
