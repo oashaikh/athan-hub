@@ -227,7 +227,7 @@ audio_url="${audio_url%%+*}"  # and only its first part
       printf '        target:\n'
       printf '          entity_id: media_player.%s\n' "${notify_service#alexa_media_}"
       printf '        data:\n'
-      printf '          media_content_id: ask athan hub to play the athan\n'
+      printf '          media_content_id: ask call to prayer to play the athan\n'
       printf '          media_content_type: custom\n'
     else
       printf '      - action: notify.%s\n' "$notify_service"
