@@ -57,6 +57,13 @@ fi
 if [[ -f "$CONFIG_DIR/configuration.yaml" ]] && ! grep -q 'card-mod-4.2.1.js' "$CONFIG_DIR/configuration.yaml"; then
   sed -i '/^frontend:/a\  extra_module_url:\n    - /local/community/card-mod-4.2.1.js' "$CONFIG_DIR/configuration.yaml"
 fi
+# The TV app cannot type a password with a remote, so a TV at ATHAN_HA_TV_IP is
+# signed in as the owner without a login screen. Only that one address is trusted.
+tv_ip="$(sed -n 's/^ATHAN_HA_TV_IP=//p' "$ENV_FILE" 2>/dev/null | head -n 1)"
+if [[ -n "$tv_ip" && -f "$CONFIG_DIR/.storage/auth" ]] && ! grep -q 'trusted_networks' "$CONFIG_DIR/configuration.yaml"; then
+  owner_id="$(python3 -c 'import json,sys; print(next(u["id"] for u in json.load(open(sys.argv[1]))["data"]["users"] if u.get("is_owner")))' "$CONFIG_DIR/.storage/auth")"
+  sed -i "/^homeassistant:/a\\  auth_providers:\\n    - type: homeassistant\\n    - type: trusted_networks\\n      trusted_networks:\\n        - $tv_ip/32\\n      trusted_users:\\n        $tv_ip/32: $owner_id\\n      allow_bypass_login: true" "$CONFIG_DIR/configuration.yaml"
+fi
 # nginx proxies port 80 to Home Assistant when ATHAN_HA_FRONT_DOOR=1.
 if [[ -f "$CONFIG_DIR/configuration.yaml" ]] && ! grep -q '^http:' "$CONFIG_DIR/configuration.yaml"; then
   printf '\nhttp:\n  use_x_forwarded_for: true\n  trusted_proxies:\n    - 127.0.0.1\n    - ::1\n' >> "$CONFIG_DIR/configuration.yaml"
@@ -125,6 +132,32 @@ audio_url="$(ha_value ATHAN_HA_AUDIO_URL)"
     printf '                - action: timer.cancel\n'
     printf '                  target:\n'
     printf '                    entity_id: "timer.echo_timer_{{ repeat.item }}"\n'
+  fi
+  # LG Developer Mode sessions expire after about 1000 hours and delete sideloaded
+  # apps such as the Athan Hub TV app. Renew daily with the session token stored in
+  # secrets.yaml (see tv/webos/README.md), and raise a notification if LG refuses.
+  if grep -q '^lg_devmode_reset_url:' "$CONFIG_DIR/secrets.yaml" 2>/dev/null; then
+    printf 'rest_command:\n'
+    printf '  lg_devmode_reset:\n'
+    printf '    url: !secret lg_devmode_reset_url\n'
+    printf '    method: get\n'
+    printf '    timeout: 30\n'
+    printf 'automation lg_devmode:\n'
+    printf '  - id: athan_hub_renew_lg_devmode\n'
+    printf '    alias: Renew the LG Developer Mode session\n'
+    printf '    triggers:\n'
+    printf '      - trigger: time\n'
+    printf '        at: "03:30:00"\n'
+    printf '    actions:\n'
+    printf '      - action: rest_command.lg_devmode_reset\n'
+    printf '        response_variable: reset\n'
+    # LG answers with a text/html content type, so the JSON arrives as a string.
+    printf '      - if: "{{ reset.status != 200 or %s not in (reset.content | string) }}"\n' "'success'"
+    printf '        then:\n'
+    printf '          - action: persistent_notification.create\n'
+    printf '            data:\n'
+    printf '              title: LG Developer Mode renewal failed\n'
+    printf '              message: "Open Developer Mode on the TV and press Extend, or the Athan Hub TV app will be removed. LG said: {{ reset.content }}"\n'
   fi
   tv_entity="$(ha_value ATHAN_HA_TV_ENTITY)"
   if [[ -n "$tv_entity" ]]; then

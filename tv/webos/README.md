@@ -153,3 +153,17 @@ be wired up separately.
   saver, so if it does, change it in the TV's settings (General, then
   Eco/Energy Saving, and the screen saver options).
 - How long the Developer Mode timer really is on this firmware.
+
+## Automatic session renewal
+
+The Developer Mode session token lives on the TV at `/var/luna/preferences/devmode_enabled`. Read it once with `ares-novacom --device lgtv --run "cat /var/luna/preferences/devmode_enabled"` and add it to Home Assistant's `secrets.yaml` as:
+
+```yaml
+lg_devmode_reset_url: "https://developer.lge.com/secure/ResetDevModeSession.dev?sessionToken=<token>"
+```
+
+`deploy/setup-home-assistant.sh` then adds a `rest_command` and an automation that renews the session every night at 03:30, so the app is never removed. If LG refuses the renewal, Home Assistant shows a notification asking you to press Extend in the Developer Mode app. Keep the token out of the repository.
+
+## Signing in on the TV
+
+The remote cannot comfortably type a password, so set `ATHAN_HA_TV_IP` in `/etc/athan-hub/athan-hub.env` to the TV's address and rerun the setup script. Home Assistant then signs that one address in as the owner without a login screen.
