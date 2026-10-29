@@ -59,10 +59,11 @@ if [[ -f "$CONFIG_DIR/configuration.yaml" ]] && ! grep -q 'card-mod-4.2.1.js' "$
 fi
 # The TV app cannot type a password with a remote, so a TV at ATHAN_HA_TV_IP is
 # signed in as the owner without a login screen. Only that one address is trusted.
+# trusted_networks must be listed first, or the frontend shows the login form anyway.
 tv_ip="$(sed -n 's/^ATHAN_HA_TV_IP=//p' "$ENV_FILE" 2>/dev/null | head -n 1)"
 if [[ -n "$tv_ip" && -f "$CONFIG_DIR/.storage/auth" ]] && ! grep -q 'trusted_networks' "$CONFIG_DIR/configuration.yaml"; then
   owner_id="$(python3 -c 'import json,sys; print(next(u["id"] for u in json.load(open(sys.argv[1]))["data"]["users"] if u.get("is_owner")))' "$CONFIG_DIR/.storage/auth")"
-  sed -i "/^homeassistant:/a\\  auth_providers:\\n    - type: homeassistant\\n    - type: trusted_networks\\n      trusted_networks:\\n        - $tv_ip/32\\n      trusted_users:\\n        $tv_ip/32: $owner_id\\n      allow_bypass_login: true" "$CONFIG_DIR/configuration.yaml"
+  sed -i "/^homeassistant:/a\\  auth_providers:\\n    - type: trusted_networks\\n      trusted_networks:\\n        - $tv_ip/32\\n      trusted_users:\\n        $tv_ip/32: $owner_id\\n      allow_bypass_login: true\\n    - type: homeassistant" "$CONFIG_DIR/configuration.yaml"
 fi
 # nginx proxies port 80 to Home Assistant when ATHAN_HA_FRONT_DOOR=1.
 if [[ -f "$CONFIG_DIR/configuration.yaml" ]] && ! grep -q '^http:' "$CONFIG_DIR/configuration.yaml"; then
