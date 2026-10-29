@@ -126,6 +126,39 @@ audio_url="$(ha_value ATHAN_HA_AUDIO_URL)"
     printf '                  target:\n'
     printf '                    entity_id: "timer.echo_timer_{{ repeat.item }}"\n'
   fi
+  tv_entity="$(ha_value ATHAN_HA_TV_ENTITY)"
+  if [[ -n "$tv_entity" ]]; then
+    # At each prayer, if the TV is on: show who is calling, mute it for the athan, unmute.
+    tv_notify="${tv_entity#media_player.}"
+    printf 'automation athan_tv:\n'
+    printf '  - id: athan_hub_tv_prayer_alert\n'
+    printf '    alias: Mute the TV for the athan\n'
+    printf '    mode: single\n'
+    printf '    triggers:\n'
+    printf '      - trigger: time\n'
+    printf '        at: sensor.next_prayer_time\n'
+    printf '    conditions:\n'
+    printf '      - condition: state\n'
+    printf '        entity_id: %s\n' "$tv_entity"
+    printf '        state: "on"\n'
+    printf '    actions:\n'
+    printf '      - variables:\n'
+    printf "          prayer: \"{{ states('sensor.next_prayer') }}\"\n"
+    printf '      - action: notify.%s\n' "$tv_notify"
+    printf '        data:\n'
+    printf '          message: "{{ prayer }}: athan is playing"\n'
+    printf '      - action: media_player.volume_mute\n'
+    printf '        target:\n'
+    printf '          entity_id: %s\n' "$tv_entity"
+    printf '        data:\n'
+    printf '          is_volume_muted: true\n'
+    printf '      - delay: "00:03:40"\n'
+    printf '      - action: media_player.volume_mute\n'
+    printf '        target:\n'
+    printf '          entity_id: %s\n' "$tv_entity"
+    printf '        data:\n'
+    printf '          is_volume_muted: false\n'
+  fi
   if [[ -n "$notify_service" && -n "$audio_url" ]]; then
     printf 'script:\n'
     printf '  play_athan_on_echo:\n'
