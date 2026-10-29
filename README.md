@@ -55,6 +55,23 @@ sudo ./install.sh --no-pin
 sudo ./install.sh --keep-hostname
 ```
 
+### Playing on an Echo through Home Assistant
+
+Some Echo speakers will not hold a Bluetooth connection to a Linux device. Athan Hub can instead ask Home Assistant's Alexa Media Player integration to play the athan:
+
+1. Convert the athan to Alexa's format (MP3, 48 kbps, 24 kHz, at most 240 seconds), for example `ffmpeg -i athan.mp3 -map 0:a -ac 2 -b:a 48k -ar 24000 alexa-athan.mp3`, and host it at a public HTTPS URL. Amazon fetches the file itself.
+2. Create a long-lived access token in Home Assistant (Profile, then Security).
+3. Add these lines to `/etc/athan-hub/athan-hub.env` and restart `athan-hub-scheduler`:
+
+```text
+ATHAN_HA_URL=http://127.0.0.1:8123
+ATHAN_HA_TOKEN=<long-lived token>
+ATHAN_HA_NOTIFY_SERVICE=alexa_media_<echo name>
+ATHAN_HA_AUDIO_URL=https://example.com/athan.mp3
+```
+
+When all of these are set, prayers play through Home Assistant and Bluetooth is not used. The installer keeps `ATHAN_HA_` lines on updates.
+
 ### Wi-Fi on a headless machine
 
 The safest approach is to configure Wi-Fi in the Ubuntu installer, cloud-init, or imaging tool before first boot. Ethernet and existing Wi-Fi configuration are never replaced by Athan Hub.

@@ -33,6 +33,12 @@ class AppSettings(BaseSettings):
     timetable_upload_limit: int = int(os.environ.get("ATHAN_TIMETABLE_UPLOAD_LIMIT", str(5 * 1024 * 1024)))
     audio_upload_limit: int = int(os.environ.get("ATHAN_AUDIO_UPLOAD_LIMIT", str(100 * 1024 * 1024)))
     background_upload_limit: int = int(os.environ.get("ATHAN_BACKGROUND_UPLOAD_LIMIT", str(20 * 1024 * 1024)))
+    # Home Assistant output: when token and audio URL are set, prayers play on an
+    # Echo through Alexa Media Player instead of over Bluetooth.
+    ha_url: str = os.environ.get("ATHAN_HA_URL", "http://127.0.0.1:8123")
+    ha_token: str = os.environ.get("ATHAN_HA_TOKEN", "")
+    ha_notify_service: str = os.environ.get("ATHAN_HA_NOTIFY_SERVICE", "")
+    ha_audio_url: str = os.environ.get("ATHAN_HA_AUDIO_URL", "")
 
     def ensure_directories(self) -> None:
         for path in [self.data_dir, self.log_dir, self.upload_dir, self.audio_dir, self.background_dir, self.quran_cache_dir, self.db_path.parent]:
