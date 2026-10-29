@@ -320,7 +320,7 @@
             },
             {
               "type": "custom:mushroom-media-player-card",
-              "entity": "media_player.osama_s_lg_webos_2020_tv",
+              "entity": "media_player.lg_webos_tv_65un85006la",
               "name": "Living room TV",
               "icon": "mdi:television",
               "use_media_info": true,
