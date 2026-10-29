@@ -6,14 +6,14 @@ A private Alexa skill that streams the full-length athan with Alexa's AudioPlaye
 
 - `api/alexa.js` is the skill's endpoint. `athan-audio-sync` deploys it to the same Vercel project as the athan audio, together with a generated `api/_manifest.js` listing the full-length recordings from Home Assistant's `athan/general` and `athan/fajr` media folders.
 - The endpoint only answers requests carrying your skill's ID (`ATHAN_ALEXA_SKILL_ID`).
-- With `ATHAN_HA_PLAYBACK=skill`, Athan Hub asks the Echo, through Home Assistant, to "ask athan hub to play the athan" (or "the fajr athan"), and the skill streams a randomly chosen recording.
-- You can also say it yourself: "Alexa, ask Athan Hub to play the athan".
+- With `ATHAN_HA_PLAYBACK=skill`, Athan Hub asks the Echo, through Home Assistant, to "ask call to prayer to play the athan" (or "the fajr athan"), and the skill streams a randomly chosen recording.
+- You can also say it yourself: "Alexa, open call to prayer".
 
 ## One-time setup
 
 1. Sign in at developer.amazon.com with the same Amazon account as the Echo.
 2. On a computer with Node.js, authorise the Alexa Skills Kit CLI: `npx ask-cli@2 configure` and approve the browser prompt. Skip the AWS step.
-3. Create the skill from this folder:
+3. Create the skill from this folder. Its invocation name is "call to prayer": Alexa's speech recognition does not pick up "athan hub", it heard "further author".
 
 ```sh
 cd alexa
@@ -35,4 +35,4 @@ sudo athan-audio-sync
 sudo systemctl restart athan-hub-scheduler
 ```
 
-Check it with "Alexa, ask Athan Hub to play the athan". To go back to the 240-second clips, remove `ATHAN_HA_PLAYBACK`.
+Check it with "Alexa, open call to prayer". To go back to the 240-second clips, remove `ATHAN_HA_PLAYBACK`.

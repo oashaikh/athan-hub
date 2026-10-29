@@ -117,7 +117,7 @@ def play(
                 _service("media_player", "volume_set", {"entity_id": media_player, "volume_level": settings.ha_volume / 100})
             if settings.ha_playback == "skill":
                 # Spoken to the Echo as if said aloud; the skill picks and streams the athan.
-                command = "ask athan hub to play the fajr athan" if prayer == "fajr" else "ask athan hub to play the athan"
+                command = "ask call to prayer to play the fajr athan" if prayer == "fajr" else "ask call to prayer to play the athan"
                 _service("media_player", "play_media", {"entity_id": media_player, "media_content_id": command, "media_content_type": "custom"})
                 parts = [command]
             else:
