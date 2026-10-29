@@ -110,6 +110,19 @@ def convert(source: Path, target_dir: Path) -> list[Path]:
     return parts
 
 
+def convert_full(source: Path, target_dir: Path) -> Path:
+    """One full-length 128 kbps MP3 for the Alexa skill's AudioPlayer, which has no length limit."""
+    digest = hashlib.sha256(source.read_bytes()).hexdigest()[:12]
+    stem = re.sub(r"[^a-z0-9]+", "-", source.stem.lower()).strip("-")[:40] or "athan"
+    target = target_dir / f"{stem}-{digest}.mp3"
+    if not target.exists():
+        subprocess.run([
+            "ffmpeg", "-loglevel", "error", "-y", "-i", str(source), "-map", "0:a", "-map_metadata", "-1",
+            "-ac", "2", "-codec:a", "libmp3lame", "-b:a", "128k", "-ar", "44100", str(target),
+        ], check=True)
+    return target
+
+
 def vercel(method: str, path: str, token: str, team: str, body: bytes | None = None, headers: dict | None = None) -> dict:
     request = urllib.request.Request(
         f"https://api.vercel.com{path}{'&' if '?' in path else '?'}slug={team}",
@@ -121,7 +134,7 @@ def vercel(method: str, path: str, token: str, team: str, body: bytes | None = N
         return json.loads(raw) if raw else {}
 
 
-def publish(files: dict[str, Path], token: str, team: str, project: str) -> str:
+def publish(files: dict[str, Path], token: str, team: str, project: str, extra: dict[str, bytes] | None = None) -> str:
     """Upload the files and deploy them to the project's production domain."""
     entries = []
     for name, path in files.items():
@@ -132,7 +145,8 @@ def publish(files: dict[str, Path], token: str, team: str, project: str) -> str:
     config = json.dumps({"headers": [{"source": "/a/(.*)\\.mp3", "headers": [
         {"key": "Content-Type", "value": "audio/mpeg"},
         {"key": "Cache-Control", "value": "public, max-age=31536000, immutable"}]}]}).encode()
-    for name, data in (("vercel.json", config), ("index.html", b"<!doctype html><title>Athan audio</title>\n")):
+    generated = {"vercel.json": config, "index.html": b"<!doctype html><title>Athan audio</title>\n", **(extra or {})}
+    for name, data in generated.items():
         sha = hashlib.sha1(data).hexdigest()
         vercel("POST", "/v2/files", token, team, data, {"Content-Type": "application/octet-stream", "x-vercel-digest": sha})
         entries.append({"file": name, "sha": sha, "size": len(data)})
@@ -161,25 +175,41 @@ def main() -> int:
         return 0
     folder = env.get("ATHAN_AUDIO_PATH") or secrets.token_hex(8)  # an unguessable path, kept stable
     choices: dict[str, list[str]] = {"general": [], "fajr": []}
+    full: dict[str, list[str]] = {"general": [], "fajr": []}
     files: dict[str, Path] = {}
     for group in choices:
         source_dir = MEDIA_ROOT / group
         target_dir = OUT_ROOT / group
         source_dir.mkdir(parents=True, exist_ok=True)
         target_dir.mkdir(parents=True, exist_ok=True)
+        (OUT_ROOT / "full").mkdir(parents=True, exist_ok=True)
         for source in sorted(p for p in source_dir.iterdir() if p.suffix.lower() in AUDIO_SUFFIXES):
             parts = convert(source, target_dir)
             names = [f"a/{folder}/{group}/{part.name}" for part in parts]
             files.update(zip(names, parts))
             choices[group].append("+".join(names))
+            whole = convert_full(source, OUT_ROOT / "full")
+            full_name = f"a/{folder}/full/{whole.name}"
+            files[full_name] = whole
+            full[group].append(full_name)
     if not choices["general"]:
         log(f"no athans in {MEDIA_ROOT / 'general'} yet; leaving the current setup alone")
         return 0
-    signature = hashlib.sha256(json.dumps(sorted(files)).encode()).hexdigest()
+    # The private Alexa skill (alexa/) streams full-length files from the same site.
+    skill_id = env.get("ATHAN_ALEXA_SKILL_ID", "")
+    skill_code = Path("/opt/athan-hub/alexa/api/alexa.js")
+    base = f"https://{project}.vercel.app/"
+    extra = {}
+    if skill_id and skill_code.exists():
+        manifest = {"skillId": skill_id, **{g: [base + n for n in names] for g, names in full.items()}}
+        extra = {
+            "api/alexa.js": skill_code.read_bytes(),
+            "api/_manifest.js": f"module.exports = {json.dumps(manifest)};\n".encode(),
+        }
+    signature = hashlib.sha256(json.dumps([sorted(files), skill_id]).encode()).hexdigest()
     if env.get("ATHAN_AUDIO_SIGNATURE") == signature:
         return 0
-    domain = publish(files, token, team, project)
-    base = f"https://{domain}/"
+    domain = publish(files, token, team, project, extra)  # served at the stable project domain below
     changed = write_env({
         "ATHAN_AUDIO_PATH": folder,
         "ATHAN_AUDIO_SIGNATURE": signature,
