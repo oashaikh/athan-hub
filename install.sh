@@ -94,7 +94,7 @@ if [[ "$INSTALL_SYSTEM_PACKAGES" == true ]]; then
   apt-get update
   apt-get install -y --no-install-recommends \
     avahi-daemon bluez ca-certificates curl dbus-user-session gettext-base \
-    git mpg123 nginx openssl python3 python3-pip python3-venv rsync tar
+    git mpg123 nginx openssl python3 python3-pip python3-venv pulseaudio-utils rsync tar
 fi
 
 python3 - <<'PY' || fail "Python 3.10 or newer is required (Ubuntu 22.04 or newer)"
@@ -114,6 +114,30 @@ else
     command -v pulseaudio >/dev/null || fail "No supported audio backend is installed; rerun without --skip-system-packages"
   fi
   AUDIO_BACKEND="pulseaudio"
+fi
+
+# Bookworm's PipeWire 0.3.65 always advertises the device as a Bluetooth
+# speaker too, so an Echo streams the wrong way and drops the pairing.
+# WirePlumber 0.5 from backports can restrict it to the audio source role.
+if [[ "$AUDIO_BACKEND" == "pipewire" ]] && [[ "$INSTALL_SYSTEM_PACKAGES" == true ]] \
+  && apt-cache policy wireplumber 2>/dev/null | grep -q bookworm-backports \
+  && dpkg --compare-versions "$(dpkg-query -W -f='${Version}' wireplumber 2>/dev/null || echo 0)" lt 0.5; then
+  log "Upgrading PipeWire from bookworm-backports for Bluetooth speaker support"
+  apt-get install -y --no-install-recommends -t bookworm-backports \
+    pipewire pipewire-bin pipewire-pulse libspa-0.2-bluetooth wireplumber
+fi
+
+# A desktop login screen runs its own audio session with a seat, which claims
+# the Bluetooth audio profiles before the service account can register them.
+if [[ "$(systemctl get-default 2>/dev/null)" == "graphical.target" ]]; then
+  log "Booting to the console so a desktop login screen cannot claim Bluetooth audio"
+  systemctl set-default multi-user.target
+fi
+
+# The weekly trim has hung SD cards on Rockchip boards and left the root
+# filesystem read-only, so it stays off when the system runs from an SD/eMMC.
+if [[ "$(findmnt -no SOURCE / 2>/dev/null)" == /dev/mmcblk* ]]; then
+  systemctl mask fstrim.timer >/dev/null 2>&1 || true
 fi
 
 if [[ -z "$SOURCE_ROOT" ]]; then
@@ -278,10 +302,19 @@ if [[ "$AUDIO_BACKEND" == "pipewire" ]]; then
   main = {
     monitor.bluez.seat-monitoring = disabled
   }
+}
+# Only ever an audio source, never a speaker or headset, and report PLAYING
+# over AVRCP while streaming, as a phone does.
+monitor.bluez.properties = {
+  bluez5.roles = [ a2dp_source ]
+  bluez5.dummy-avrcp-player = true
+  bluez5.enable-hw-volume = false
 }'
   # WirePlumber 0.4 (Debian/Raspberry Pi OS bookworm).
   wp_write /etc/wireplumber/bluetooth.lua.d/80-athan-hub-headless-bluetooth.lua \
-'bluez_monitor.properties["with-logind"] = false'
+'bluez_monitor.properties["with-logind"] = false
+bluez_monitor.properties["bluez5.dummy-avrcp-player"] = true
+bluez_monitor.properties["bluez5.enable-hw-volume"] = false'
   if [[ "$wp_changed" == true ]] && [[ -S "/run/user/${SERVICE_UID}/bus" ]]; then
     runuser -u "$SERVICE_USER" -- env XDG_RUNTIME_DIR="/run/user/${SERVICE_UID}" \
       DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/${SERVICE_UID}/bus" \
