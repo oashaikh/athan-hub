@@ -72,6 +72,8 @@ ATHAN_HA_AUDIO_URL=https://example.com/athan.mp3
 
 When all of these are set, prayers play through Home Assistant and Bluetooth is not used. The installer keeps `ATHAN_HA_` lines on updates.
 
+`sudo bash /opt/athan-hub/deploy/setup-home-assistant.sh` installs Home Assistant in Docker with Alexa Media Player. Once the lines above are set, rerunning it adds next-prayer sensors, a "Play athan on the Echo" script and an Athan Hub sidebar page to Home Assistant. See [docs/ROCK4SE-RECOVERY.md](docs/ROCK4SE-RECOVERY.md) for a full rebuild from a blank SD card.
+
 ### Wi-Fi on a headless machine
 
 The safest approach is to configure Wi-Fi in the Ubuntu installer, cloud-init, or imaging tool before first boot. Ethernet and existing Wi-Fi configuration are never replaced by Athan Hub.

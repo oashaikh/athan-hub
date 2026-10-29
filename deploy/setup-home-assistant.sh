@@ -1,0 +1,131 @@
+#!/usr/bin/env bash
+# Installs Home Assistant (Docker) next to Athan Hub so prayers can play on an Echo
+# through Alexa Media Player. Safe to rerun. Run as root on the Athan Hub machine.
+#
+# Before the first run: nothing. After it, sign in to Home Assistant at
+# http://<host>:8123, add the Alexa Media Player integration, create a long-lived
+# token and add the ATHAN_HA_ lines described in the README, then rerun this
+# script to add the Home Assistant sensors, script and sidebar dashboard.
+set -Eeuo pipefail
+
+CONFIG_DIR=/var/lib/homeassistant
+ENV_FILE=/etc/athan-hub/athan-hub.env
+IMAGE=ghcr.io/home-assistant/home-assistant:stable
+
+log() { printf '\n==> %s\n' "$*"; }
+[[ "$(id -u)" == 0 ]] || { echo "Run as root" >&2; exit 1; }
+
+# Debian's docker.io (20.10) cannot unpack Home Assistant's zstd image layers.
+if ! command -v docker >/dev/null || [[ "$(docker version -f '{{.Server.Version}}' 2>/dev/null | cut -d. -f1)" -lt 23 ]]; then
+  log "Installing Docker from download.docker.com"
+  apt-get remove -y docker.io >/dev/null 2>&1 || true
+  . /etc/os-release
+  install -m 0755 -d /etc/apt/keyrings
+  curl -fsSL "https://download.docker.com/linux/$ID/gpg" | gpg --dearmor --yes -o /etc/apt/keyrings/docker.gpg
+  echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/$ID $VERSION_CODENAME stable" \
+    > /etc/apt/sources.list.d/docker.list
+  apt-get update -qq
+  apt-get install -y -qq docker-ce docker-ce-cli containerd.io
+  systemctl enable --now docker
+fi
+
+install -d -m 0755 "$CONFIG_DIR/custom_components" "$CONFIG_DIR/packages"
+
+if [[ ! -f "$CONFIG_DIR/custom_components/alexa_media/manifest.json" ]]; then
+  log "Installing Alexa Media Player"
+  tag="$(curl -fsSL https://api.github.com/repos/alandtse/alexa_media_player/releases/latest | python3 -c 'import json,sys; print(json.load(sys.stdin)["tag_name"])')"
+  tmp="$(mktemp -d)"
+  curl -fsSL -o "$tmp/amp.zip" "https://github.com/alandtse/alexa_media_player/releases/download/$tag/alexa_media.zip"
+  python3 -c 'import sys, zipfile; zipfile.ZipFile(sys.argv[1]).extractall(sys.argv[2])' "$tmp/amp.zip" "$CONFIG_DIR/custom_components/alexa_media"
+  rm -rf "$tmp"
+fi
+
+# Packages hold the Athan Hub additions so configuration.yaml stays the default.
+if [[ -f "$CONFIG_DIR/configuration.yaml" ]] && ! grep -q '^  packages:' "$CONFIG_DIR/configuration.yaml"; then
+  printf '\nhomeassistant:\n  packages: !include_dir_named packages\n' >> "$CONFIG_DIR/configuration.yaml"
+fi
+
+ha_value() { sed -n "s/^$1=//p" "$ENV_FILE" 2>/dev/null | head -n 1; }
+notify_service="$(ha_value ATHAN_HA_NOTIFY_SERVICE)"
+audio_url="$(ha_value ATHAN_HA_AUDIO_URL)"
+{
+  printf '# Written by athan-hub deploy/setup-home-assistant.sh; edits are overwritten.\n'
+  printf 'rest:\n'
+  printf '  - resource: http://127.0.0.1/api/timetable/next\n'
+  printf '    scan_interval: 60\n'
+  printf '    sensor:\n'
+  printf '      - name: Next prayer\n'
+  printf '        unique_id: athan_hub_next_prayer\n'
+  printf '        icon: mdi:mosque\n'
+  printf '        value_template: "{{ value_json.next.prayer | title if value_json.next else none }}"\n'
+  printf '      - name: Next prayer time\n'
+  printf '        unique_id: athan_hub_next_prayer_time\n'
+  printf '        device_class: timestamp\n'
+  printf '        value_template: "{{ value_json.next.at if value_json.next else none }}"\n'
+  if [[ -n "$notify_service" && -n "$audio_url" ]]; then
+    printf 'script:\n'
+    printf '  play_athan_on_echo:\n'
+    printf '    alias: Play athan on the Echo\n'
+    printf '    icon: mdi:mosque\n'
+    printf '    sequence:\n'
+    printf '      - action: notify.%s\n' "$notify_service"
+    printf '        data:\n'
+    printf '          message: <audio src="%s"/>\n' "$audio_url"
+    printf '          data:\n'
+    printf '            type: tts\n'
+  fi
+} > "$CONFIG_DIR/packages/athan_hub.yaml"
+
+if ! docker inspect homeassistant >/dev/null 2>&1; then
+  log "Starting Home Assistant"
+  docker pull -q "$IMAGE"
+  docker run -d --name homeassistant --restart=unless-stopped --privileged --network=host \
+    -e TZ="$(timedatectl show -p Timezone --value 2>/dev/null || echo Europe/London)" \
+    -v "$CONFIG_DIR:/config" -v /run/dbus:/run/dbus:ro "$IMAGE" >/dev/null
+else
+  docker restart homeassistant >/dev/null
+fi
+
+for _ in $(seq 1 60); do
+  curl -fsS -o /dev/null http://127.0.0.1:8123/ && break
+  sleep 5
+done
+
+token="$(ha_value ATHAN_HA_TOKEN)"
+if [[ -n "$token" ]]; then
+  log "Adding the Athan Hub sidebar dashboard"
+  host_ip="$(hostname -I | awk '{print $1}')"
+  docker exec -i -e T="$token" -e URL="http://$host_ip/" homeassistant python3 - <<'PY'
+import asyncio, os, aiohttp
+
+async def main():
+    async with aiohttp.ClientSession() as session, session.ws_connect("http://127.0.0.1:8123/api/websocket") as ws:
+        await ws.receive_json()
+        await ws.send_json({"type": "auth", "access_token": os.environ["T"]})
+        if (await ws.receive_json())["type"] != "auth_ok":
+            raise SystemExit("Home Assistant rejected ATHAN_HA_TOKEN")
+        ids = iter(range(1, 100))
+
+        async def call(message):
+            message["id"] = next(ids)
+            await ws.send_json(message)
+            while True:
+                reply = await ws.receive_json()
+                if reply.get("id") == message["id"]:
+                    return reply
+
+        dashboards = (await call({"type": "lovelace/dashboards/list"}))["result"]
+        if not any(d["url_path"] == "athan-hub" for d in dashboards):
+            await call({"type": "lovelace/dashboards/create", "url_path": "athan-hub", "title": "Athan Hub",
+                        "icon": "mdi:mosque", "show_in_sidebar": True, "require_admin": False, "mode": "storage"})
+        await call({"type": "lovelace/config/save", "url_path": "athan-hub", "config": {"views": [{
+            "title": "Athan Hub", "path": "athan-hub", "type": "panel",
+            "cards": [{"type": "iframe", "url": os.environ["URL"], "aspect_ratio": "100%"}]}]}})
+
+asyncio.run(main())
+PY
+else
+  log "Next: sign in at http://$(hostname -I | awk '{print $1}'):8123, add Alexa Media Player, then set the ATHAN_HA_ lines and rerun"
+fi
+
+log "Home Assistant is ready at http://$(hostname -I | awk '{print $1}'):8123"
