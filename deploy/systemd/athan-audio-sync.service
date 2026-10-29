@@ -1,0 +1,10 @@
+[Unit]
+Description=Publish uploaded athan recordings for the Echo
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# Let an upload finish before converting it.
+ExecStartPre=/bin/sleep 10
+ExecStart=/usr/bin/python3 /usr/local/bin/athan-audio-sync

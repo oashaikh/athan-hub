@@ -94,7 +94,7 @@ if [[ "$INSTALL_SYSTEM_PACKAGES" == true ]]; then
   apt-get update
   apt-get install -y --no-install-recommends \
     avahi-daemon bluez ca-certificates curl dbus-user-session gettext-base \
-    git mpg123 nginx openssl python3 python3-pip python3-venv pulseaudio-utils rsync tar
+    ffmpeg git mpg123 nginx openssl python3 python3-pip python3-venv pulseaudio-utils rsync tar
 fi
 
 python3 - <<'PY' || fail "Python 3.10 or newer is required (Ubuntu 22.04 or newer)"
@@ -203,7 +203,7 @@ if [[ -r "$CONFIG_ROOT/athan-hub.env" ]]; then
   existing_pin="$(sed -n 's/^ATHAN_PIN=//p' "$CONFIG_ROOT/athan-hub.env" | head -n 1)"
   existing_secret="$(sed -n 's/^ATHAN_PIN_SECRET=//p' "$CONFIG_ROOT/athan-hub.env" | head -n 1)"
   # Home Assistant output settings are added by hand; keep them across updates.
-  existing_ha="$(grep '^ATHAN_HA_' "$CONFIG_ROOT/athan-hub.env" || true)"
+  existing_ha="$(grep -E '^ATHAN_(HA|VERCEL|AUDIO)_' "$CONFIG_ROOT/athan-hub.env" || true)"
 fi
 generated_pin=""
 case "$PIN_MODE" in
@@ -338,6 +338,9 @@ for service in athan-hub-api athan-hub-scheduler; do
 done
 install -m 0644 "$INSTALL_ROOT/deploy/systemd/athan-hub-update.service" /etc/systemd/system/athan-hub-update.service
 install -m 0644 "$INSTALL_ROOT/deploy/systemd/athan-hub-update.timer" /etc/systemd/system/athan-hub-update.timer
+install -m 0755 "$INSTALL_ROOT/deploy/athan-audio-sync.py" /usr/local/bin/athan-audio-sync
+install -m 0644 "$INSTALL_ROOT/deploy/systemd/athan-audio-sync.service" /etc/systemd/system/athan-audio-sync.service
+install -m 0644 "$INSTALL_ROOT/deploy/systemd/athan-audio-sync.path" /etc/systemd/system/athan-audio-sync.path
 if [[ ! -e "$CONFIG_ROOT/updater.env" ]]; then
   cat > "$CONFIG_ROOT/updater.env" <<EOF
 ATHAN_UPDATE_REPOSITORY=https://github.com/${REPOSITORY}.git
@@ -370,7 +373,7 @@ if command -v ufw >/dev/null && ufw status | grep -q '^Status: active'; then
 fi
 
 systemctl daemon-reload
-systemctl enable --now bluetooth.service avahi-daemon.service nginx.service athan-hub-api.service athan-hub-scheduler.service athan-hub-update.timer
+systemctl enable --now bluetooth.service avahi-daemon.service nginx.service athan-hub-api.service athan-hub-scheduler.service athan-hub-update.timer athan-audio-sync.path
 systemctl restart athan-hub-api.service athan-hub-scheduler.service nginx.service
 
 log "Waiting for the application health check"
