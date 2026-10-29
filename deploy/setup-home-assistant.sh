@@ -221,11 +221,21 @@ audio_url="${audio_url%%+*}"  # and only its first part
     printf '    alias: Play athan on the Echo\n'
     printf '    icon: mdi:mosque\n'
     printf '    sequence:\n'
-    printf '      - action: notify.%s\n' "$notify_service"
-    printf '        data:\n'
-    printf '          message: <audio src="%s"/>\n' "$audio_url"
-    printf '          data:\n'
-    printf '            type: tts\n'
+    if [[ "$(ha_value ATHAN_HA_PLAYBACK)" == "skill" ]]; then
+      # The private Alexa skill streams a random full-length athan (see alexa/README.md).
+      printf '      - action: media_player.play_media\n'
+      printf '        target:\n'
+      printf '          entity_id: media_player.%s\n' "${notify_service#alexa_media_}"
+      printf '        data:\n'
+      printf '          media_content_id: ask athan hub to play the athan\n'
+      printf '          media_content_type: custom\n'
+    else
+      printf '      - action: notify.%s\n' "$notify_service"
+      printf '        data:\n'
+      printf '          message: <audio src="%s"/>\n' "$audio_url"
+      printf '          data:\n'
+      printf '            type: tts\n'
+    fi
   fi
 } > "$CONFIG_DIR/packages/athan_hub.yaml"
 
