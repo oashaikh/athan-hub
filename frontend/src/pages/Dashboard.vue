@@ -214,12 +214,13 @@ const prayerCards = computed(() => prayerMeta.map(meta => {
 }))
 
 const load = async () => {
-  const results = await Promise.allSettled([
+  // Promise.all with per-request catch instead of allSettled, which the TV's Chromium 68 lacks.
+  const results = await Promise.all([
     api.get('/timetable/next'),
     api.get('/timetable/day', { params: { date: localDateString(new Date()) } }),
     api.get('/public/config')
-  ])
-  const value = (index: number) => results[index].status === 'fulfilled' ? (results[index] as PromiseFulfilledResult<any>).value.data : null
+  ].map((request) => request.catch(() => null)))
+  const value = (index: number) => results[index]?.data ?? null
   next.value = value(0)
   today.value = value(1)
   background.value = value(2)?.dashboard_background || ''

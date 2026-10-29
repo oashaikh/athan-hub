@@ -105,7 +105,7 @@ const onTimeUpdate = async () => {
 const loadSegments = async () => {
   const capability = props.recitation?.capability
   if ((capability !== 'segmented_surah' && capability !== 'surah') || !props.verses.length) { segmentMap.value = {}; return }
-  try { const { data } = await api.get(`/quran/recitations/${props.recitation.id}/segments`, { params: { surah_id: props.verses[0].surah_id, start_ayah: props.verses[0].ayah_number, end_ayah: props.verses.at(-1).ayah_number } }); segmentMap.value = data.segments || {} } catch { segmentMap.value = {}; if (capability === 'segmented_surah') failed() }
+  try { const { data } = await api.get(`/quran/recitations/${props.recitation.id}/segments`, { params: { surah_id: props.verses[0].surah_id, start_ayah: props.verses[0].ayah_number, end_ayah: props.verses[props.verses.length - 1].ayah_number } }); segmentMap.value = data.segments || {} } catch { segmentMap.value = {}; if (capability === 'segmented_surah') failed() }
 }
 const previous = () => { verseIndex.value = Math.max(0, verseIndex.value - 1); repeatIndex.value = 1 }
 const next = () => { verseIndex.value = Math.min(props.verses.length - 1, verseIndex.value + 1); repeatIndex.value = 1 }
