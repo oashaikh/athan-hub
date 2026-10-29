@@ -202,11 +202,13 @@ def main() -> int:
     extra = {}
     if skill_id and skill_code.exists():
         manifest = {"skillId": skill_id, **{g: [base + n for n in names] for g, names in full.items()}}
+        icons = skill_code.parent.parent / "icons"
         extra = {
+            **{f"icons/{icon.name}": icon.read_bytes() for icon in sorted(icons.glob("*.png"))},
             "api/alexa.js": skill_code.read_bytes(),
             "api/_manifest.js": f"module.exports = {json.dumps(manifest)};\n".encode(),
         }
-    signature = hashlib.sha256(json.dumps([sorted(files), skill_id]).encode()).hexdigest()
+    signature = hashlib.sha256(json.dumps([sorted(files), skill_id, sorted(extra)]).encode()).hexdigest()
     if env.get("ATHAN_AUDIO_SIGNATURE") == signature:
         return 0
     domain = publish(files, token, team, project, extra)  # served at the stable project domain below
