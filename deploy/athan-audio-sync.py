@@ -208,7 +208,8 @@ def main() -> int:
             "api/alexa.js": skill_code.read_bytes(),
             "api/_manifest.js": f"module.exports = {json.dumps(manifest)};\n".encode(),
         }
-    signature = hashlib.sha256(json.dumps([sorted(files), skill_id, sorted(extra)]).encode()).hexdigest()
+    extra_hashes = {name: hashlib.sha256(data).hexdigest() for name, data in extra.items()}  # redeploy when the skill code changes
+    signature = hashlib.sha256(json.dumps([sorted(files), skill_id, sorted(extra_hashes.items())]).encode()).hexdigest()
     if env.get("ATHAN_AUDIO_SIGNATURE") == signature:
         return 0
     domain = publish(files, token, team, project, extra)  # served at the stable project domain below
