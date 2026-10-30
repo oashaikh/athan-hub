@@ -49,6 +49,7 @@ module.exports = (req, res) => {
   }
   const request = body.request || {};
   const type = request.type || "";
+  console.log(JSON.stringify({ type, intent: request.intent?.name, prayer: request.intent?.slots?.prayer?.value, error: request.error }));
   let reply;
   if (type === "LaunchRequest") {
     const url = choose("");
