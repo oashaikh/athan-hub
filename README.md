@@ -80,6 +80,8 @@ Add `ATHAN_HA_FRONT_DOOR=1` to make `http://athan.local` open Home Assistant. Th
 
 `sudo bash /opt/athan-hub/deploy/setup-home-assistant.sh` installs Home Assistant in Docker with Alexa Media Player. Once the lines above are set, rerunning it adds next-prayer sensors, a "Play athan on the Echo" script and an Athan Hub sidebar page to Home Assistant. See [docs/ROCK4SE-RECOVERY.md](docs/ROCK4SE-RECOVERY.md) for a full rebuild from a blank SD card.
 
+`sudo bash /opt/athan-hub/deploy/setup-pihole.sh` adds Pi-hole, a network-wide DNS ad blocker, in Docker and connects it to Home Assistant. Its admin page is on port 8081, and the password is in `/var/lib/pihole/api-password`. It blocks ads once your router hands out this machine's address as the DNS server.
+
 ### Uploading athans
 
 Upload recordings in Home Assistant under **Media → My media → athan**: put general athans in `general` and Fajr athans in `fajr`. Any common audio format works. Within a few seconds `athan-audio-sync` converts each file to Alexa's format, splits anything longer than 240 seconds at a quiet moment, publishes the files to Vercel (Amazon fetches the audio itself, so it has to be public HTTPS) and makes them the random choices for every prayer, with the `fajr` folder used for Fajr. Deleting a file removes it from the rotation.
