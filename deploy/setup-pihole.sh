@@ -4,7 +4,8 @@
 # setup-home-assistant.sh (which installs Docker and Home Assistant).
 #
 # Pi-hole answers DNS on port 53 and serves its admin page on port 8081, since
-# nginx already uses 80 and 8080. It blocks nothing until the router (or a
+# nginx already uses 80 and 8080. It listens on every interface so phones can
+# use it over Tailscale too; the router keeps port 53 closed to the internet. It blocks nothing until the router (or a
 # device) uses this machine's address as its DNS server.
 set -Eeuo pipefail
 
@@ -22,7 +23,8 @@ install -d -m 0700 "$DATA_DIR"
 [[ -s "$DATA_DIR/api-password" ]] || (umask 077; openssl rand -hex 16 > "$DATA_DIR/api-password")
 password="$(cat "$DATA_DIR/api-password")"
 
-if [[ "$(docker inspect -f '{{.Config.Image}}' pihole 2>/dev/null)" != "$IMAGE" ]]; then
+if [[ "$(docker inspect -f '{{.Config.Image}}' pihole 2>/dev/null)" != "$IMAGE" ]] \
+  || ! docker inspect -f '{{.Config.Env}}' pihole | grep -q 'FTLCONF_dns_listeningMode=all'; then
   log "Starting Pi-hole ($IMAGE)"
   docker pull -q "$IMAGE" >/dev/null
   docker rm -f pihole >/dev/null 2>&1 || true
@@ -31,7 +33,7 @@ if [[ "$(docker inspect -f '{{.Config.Image}}' pihole 2>/dev/null)" != "$IMAGE" 
     -e FTLCONF_webserver_port="$WEB_PORT" \
     -e FTLCONF_webserver_api_password="$password" \
     -e FTLCONF_dns_upstreams='1.1.1.1;9.9.9.9' \
-    -e FTLCONF_dns_listeningMode=local \
+    -e FTLCONF_dns_listeningMode=all \
     -v "$DATA_DIR/etc:/etc/pihole" "$IMAGE" >/dev/null
 fi
 
