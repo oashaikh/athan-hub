@@ -45,6 +45,33 @@ else
   log "Pi-hole is running, but did not block the test domain yet (the blocklist may still be downloading)"
 fi
 
+# Pi-hole's default list misses the ad networks inside phone games (AppLovin, Unity Ads,
+# InMobi, Vungle); HaGeZi's Pro++ list covers them.
+P="$password" PORT="$WEB_PORT" python3 - <<'PY'
+import json, os, urllib.request
+
+base = "http://127.0.0.1:" + os.environ["PORT"] + "/api"
+def call(method, path, body=None, sid=None):
+    request = urllib.request.Request(base + path, method=method,
+        data=json.dumps(body).encode() if body is not None else None,
+        headers={"Content-Type": "application/json", **({"sid": sid} if sid else {})})
+    with urllib.request.urlopen(request, timeout=600) as response:
+        raw = response.read()
+        return json.loads(raw) if raw.startswith(b"{") else {}  # gravity streams plain text
+
+sid = call("POST", "/auth", {"password": os.environ["P"]})["session"]["sid"]
+try:
+    lists = ["https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/adblock/pro.plus.txt"]
+    have = {entry["address"] for entry in call("GET", "/lists", sid=sid)["lists"]}
+    missing = [url for url in lists if url not in have]
+    if missing:
+        call("POST", "/lists?type=block", {"address": missing, "comment": "Athan Hub", "enabled": True}, sid)
+        call("POST", "/action/gravity", sid=sid)
+        print("Added blocklists and rebuilt gravity:", ", ".join(missing))
+finally:
+    call("DELETE", "/auth", sid=sid)
+PY
+
 token="$(grep -E '^ATHAN_HA_TOKEN=' "$ENV_FILE" 2>/dev/null | tail -1 | cut -d= -f2- || true)"
 if [[ -z "$token" ]]; then
   log "No ATHAN_HA_TOKEN in $ENV_FILE; add Pi-hole in Home Assistant by hand (host 127.0.0.1, port $WEB_PORT)"
