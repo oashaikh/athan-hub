@@ -42,6 +42,7 @@ fetch_card card-mod-4.2.1.js https://raw.githubusercontent.com/thomasloven/lovel
 fetch_card layout-card-2.4.7.js https://raw.githubusercontent.com/thomasloven/lovelace-layout-card/v2.4.7/layout-card.js
 fetch_card mushroom-5.2.3.js https://github.com/piitaya/lovelace-mushroom/releases/download/v5.2.3/mushroom.js
 install -m 0644 "$SCRIPT_DIR/homeassistant/themes/athan_glass.yaml" "$CONFIG_DIR/themes/athan_glass.yaml"
+install -m 0644 "$SCRIPT_DIR/homeassistant/www/athan-tv-nav.js" "$CONFIG_DIR/www/athan-tv-nav.js"
 
 if [[ ! -f "$CONFIG_DIR/custom_components/alexa_media/manifest.json" ]]; then
   log "Installing Alexa Media Player"
@@ -261,6 +262,20 @@ audio_url="${audio_url%%+*}"  # and only its first part
     printf '    icon: mdi:message-text-outline\n'
     printf '    max: 255\n'
   fi
+  if [[ -n "$tv_entity" ]]; then
+    # One-tap TV controls for the iPhone Control Centre, widgets and the Apple Watch,
+    # which list scripts rather than dashboard buttons.
+    printf 'script tv_remote:\n'
+    tv_script() {
+      printf '  %s:\n    alias: %s\n    icon: %s\n    sequence:\n      - action: %s\n        target:\n          entity_id: %s\n' "$1" "$2" "$3" "$4" "$tv_entity"
+      [[ -z "${5:-}" ]] || printf '        data:\n          %s\n' "$5"
+    }
+    tv_script tv_power "TV power" mdi:power media_player.toggle
+    tv_script tv_volume_up "TV volume up" mdi:volume-plus media_player.volume_up
+    tv_script tv_volume_down "TV volume down" mdi:volume-minus media_player.volume_down
+    tv_script tv_mute "TV mute" mdi:volume-mute media_player.volume_mute "is_volume_muted: \"{{ not state_attr('$tv_entity', 'is_volume_muted') }}\""
+    tv_script tv_play_pause "TV play/pause" mdi:play-pause media_player.media_play_pause
+  fi
   tv_mac="$(ha_value ATHAN_HA_TV_MAC)"
   if [[ -n "$tv_entity" && -n "$tv_mac" ]]; then
     # webOS TVs switch on over the network with a Wake-on-LAN packet; the webostv
@@ -381,6 +396,7 @@ async def main():
         wanted = {
             "/local/community/layout-card-2.4.7.js": "module",
             "/local/community/mushroom-5.2.3.js": "module",
+            "/local/athan-tv-nav.js?v=1": "module",
             "https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;700&display=swap": "css",
         }
         have = {r["url"] for r in (await call({"type": "lovelace/resources"}))["result"]}
