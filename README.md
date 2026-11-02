@@ -84,6 +84,8 @@ Add `ATHAN_HA_FRONT_DOOR=1` to make `http://athan.local` open Home Assistant. Th
 
 To keep a device off the internet entirely (for example a camera that should only stream to Home Assistant), list its MAC or IP addresses in `ATHAN_PIHOLE_OFFLINE_CLIENTS=` (comma separated) in `/etc/athan-hub/athan-hub.env` and rerun the script. Pi-hole then answers none of its lookups. A device that contacts servers by IP address gets past this, so block it in the router as well for a complete cut-off.
 
+A CAM720 (Jooan) camera can be put back on Wi-Fi after a reset without the CAM720 app: `sudo python3 /opt/athan-hub/deploy/camera-wifi.py "<Wi-Fi name>"` joins the camera's `JA-...` setup hotspot with this machine's Wi-Fi adapter and sends it the Wi-Fi details, the same request the app makes.
+
 For access away from home, install Tailscale (free for personal use) and sign in: `curl -fsSL https://tailscale.com/install.sh | sh`, then `sudo tailscale up --accept-dns=false --hostname=athan`. `--accept-dns=false` keeps the machine on its own DNS, so Pi-hole is unaffected. Home Assistant is then reachable at `http://athan` from any device signed in to the same Tailscale account. Tailscale SSH is not needed and stays off.
 
 ### Uploading athans
