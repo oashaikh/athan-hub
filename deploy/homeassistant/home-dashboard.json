@@ -398,19 +398,32 @@
       "type": "custom:grid-layout",
       "layout": {
         "grid-template-columns": "minmax(0, 1fr) minmax(0, 1fr)",
-        "grid-template-areas": "\"now remote\" \"apps remote\"",
+        "grid-template-areas": "\"cam remote\" \"now remote\" \"apps remote\"",
         "grid-gap": "18px",
         "padding": "8px 20px 24px",
         "max-width": "1200px",
         "mediaquery": {
           "(max-width: 1000px)": {
             "grid-template-columns": "minmax(0, 1fr)",
-            "grid-template-areas": "\"now\" \"remote\" \"apps\"",
+            "grid-template-areas": "\"cam\" \"now\" \"remote\" \"apps\"",
             "padding": "8px 12px 24px"
           }
         }
       },
       "cards": [
+        {
+          "type": "picture-entity",
+          "view_layout": {
+            "grid-area": "cam"
+          },
+          "entity": "camera.192_168_1_144",
+          "name": "TV room camera",
+          "camera_view": "live",
+          "show_state": false,
+          "tap_action": {
+            "action": "more-info"
+          }
+        },
         {
           "type": "custom:mushroom-media-player-card",
           "view_layout": {

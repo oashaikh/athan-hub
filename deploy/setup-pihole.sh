@@ -49,7 +49,8 @@ fi
 
 # Pi-hole's default list misses the ad networks inside phone games (AppLovin, Unity Ads,
 # InMobi, Vungle); HaGeZi's Pro++ list covers them.
-P="$password" PORT="$WEB_PORT" python3 - <<'PY'
+OFFLINE="$(grep -E '^ATHAN_PIHOLE_OFFLINE_CLIENTS=' "$ENV_FILE" 2>/dev/null | tail -1 | cut -d= -f2- || true)" \
+  P="$password" PORT="$WEB_PORT" python3 - <<'PY'
 import json, os, urllib.request
 
 base = "http://127.0.0.1:" + os.environ["PORT"] + "/api"
@@ -70,6 +71,20 @@ try:
         call("POST", "/lists?type=block", {"address": missing, "comment": "Athan Hub", "enabled": True}, sid)
         call("POST", "/action/gravity", sid=sid)
         print("Added blocklists and rebuilt gravity:", ", ".join(missing))
+    # Devices in ATHAN_PIHOLE_OFFLINE_CLIENTS (IPs or MACs, comma separated) get no internet
+    # names at all, e.g. a camera that should only talk to Home Assistant.
+    offline = [c.strip().lower() for c in os.environ.get("OFFLINE", "").split(",") if c.strip()]
+    if offline:
+        groups = {g["name"]: g["id"] for g in call("GET", "/groups", sid=sid)["groups"]}
+        if "Offline" not in groups:
+            groups["Offline"] = call("POST", "/groups", {"name": "Offline", "comment": "Athan Hub: local only", "enabled": True}, sid)["groups"][0]["id"]
+        if not any(d["domain"] == ".*" for d in call("GET", "/domains/deny/regex", sid=sid)["domains"]):
+            call("POST", "/domains/deny/regex", {"domain": ".*", "comment": "Athan Hub: Offline group", "groups": [groups["Offline"]], "enabled": True}, sid)
+        for client in offline:
+            call("POST", "/clients", {"client": client, "comment": "Athan Hub: offline", "groups": [groups["Offline"]]}, sid) \
+                if not call("GET", "/clients/" + client, sid=sid)["clients"] else \
+                call("PUT", "/clients/" + client, {"comment": "Athan Hub: offline", "groups": [groups["Offline"]]}, sid)
+        print("Offline in Pi-hole:", ", ".join(offline))
 finally:
     call("DELETE", "/auth", sid=sid)
 PY

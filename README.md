@@ -82,6 +82,8 @@ Add `ATHAN_HA_FRONT_DOOR=1` to make `http://athan.local` open Home Assistant. Th
 
 `sudo bash /opt/athan-hub/deploy/setup-pihole.sh` adds Pi-hole, a network-wide DNS ad blocker, in Docker and connects it to Home Assistant. Its admin page is on port 8081, and the password is in `/var/lib/pihole/api-password`. It blocks ads once your router hands out this machine's address as the DNS server.
 
+To keep a device off the internet entirely (for example a camera that should only stream to Home Assistant), list its MAC or IP addresses in `ATHAN_PIHOLE_OFFLINE_CLIENTS=` (comma separated) in `/etc/athan-hub/athan-hub.env` and rerun the script. Pi-hole then answers none of its lookups. A device that contacts servers by IP address gets past this, so block it in the router as well for a complete cut-off.
+
 For access away from home, install Tailscale (free for personal use) and sign in: `curl -fsSL https://tailscale.com/install.sh | sh`, then `sudo tailscale up --accept-dns=false --hostname=athan`. `--accept-dns=false` keeps the machine on its own DNS, so Pi-hole is unaffected. Home Assistant is then reachable at `http://athan` from any device signed in to the same Tailscale account. Tailscale SSH is not needed and stays off.
 
 ### Uploading athans
