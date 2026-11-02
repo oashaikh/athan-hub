@@ -1,0 +1,8 @@
+[Unit]
+Description=Watch for Camera Wi-Fi setup requests from Home Assistant
+
+[Path]
+PathExists=/var/lib/homeassistant/athan/camera-wifi.request
+
+[Install]
+WantedBy=multi-user.target

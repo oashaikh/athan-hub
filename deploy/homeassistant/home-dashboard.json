@@ -412,17 +412,32 @@
       },
       "cards": [
         {
-          "type": "picture-entity",
+          "type": "vertical-stack",
           "view_layout": {
             "grid-area": "cam"
           },
-          "entity": "camera.192_168_1_144",
-          "name": "TV room camera",
-          "camera_view": "live",
-          "show_state": false,
-          "tap_action": {
-            "action": "more-info"
-          }
+          "cards": [
+            {
+              "type": "picture-entity",
+              "entity": "camera.192_168_1_144",
+              "name": "TV room camera",
+              "camera_view": "live",
+              "show_state": false,
+              "tap_action": {
+                "action": "more-info"
+              }
+            },
+            {
+              "type": "button",
+              "entity": "script.camera_wifi_setup",
+              "name": "Camera Wi-Fi setup",
+              "icon": "mdi:wifi-cog",
+              "show_state": false,
+              "tap_action": {
+                "action": "more-info"
+              }
+            }
+          ]
         },
         {
           "type": "custom:mushroom-media-player-card",

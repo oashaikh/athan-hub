@@ -1,0 +1,6 @@
+[Unit]
+Description=Put a reset CAM720 camera on Wi-Fi
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /usr/local/bin/camera-wifi --request /var/lib/homeassistant/athan/camera-wifi.request

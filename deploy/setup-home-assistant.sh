@@ -277,13 +277,46 @@ audio_url="${audio_url%%+*}"  # and only its first part
     printf '        data:\n'
     printf '          mac: %s\n' "$tv_mac"
   fi
+  # Put a reset CAM720 camera on Wi-Fi from the dashboard: the request file is picked
+  # up on the host by camera-wifi.path, which uses this machine's Wi-Fi adapter.
+  printf 'shell_command:\n'
+  printf '  camera_wifi_request: "/config/athan/camera-wifi-request {{ ssid }} {{ password }}"\n'
+  printf 'script camera:\n'
+  printf '  camera_wifi_setup:\n'
+  printf '    alias: Camera Wi-Fi setup\n'
+  printf '    icon: mdi:cctv\n'
+  printf '    description: Reset the camera until it beeps, then run this with your Wi-Fi details.\n'
+  printf '    fields:\n'
+  printf '      ssid:\n'
+  printf '        name: Wi-Fi name\n'
+  printf '        required: true\n'
+  printf '        selector:\n'
+  printf '          text:\n'
+  printf '      password:\n'
+  printf '        name: Wi-Fi password\n'
+  printf '        required: true\n'
+  printf '        selector:\n'
+  printf '          text:\n'
+  printf '            type: password\n'
+  printf '    sequence:\n'
+  printf '      - action: shell_command.camera_wifi_request\n'
+  printf '        data:\n'
+  printf '          ssid: "{{ ssid }}"\n'
+  printf '          password: "{{ password }}"\n'
 } > "$CONFIG_DIR/packages/athan_hub.yaml"
+install -d -m 0700 "$CONFIG_DIR/athan"
+cat > "$CONFIG_DIR/athan/camera-wifi-request" <<'SH'
+#!/bin/sh
+umask 077
+printf '%s\n%s\n' "$1" "$2" > /config/athan/camera-wifi.tmp && mv /config/athan/camera-wifi.tmp /config/athan/camera-wifi.request
+SH
+chmod 0700 "$CONFIG_DIR/athan/camera-wifi-request"
 
 # --package-only: athan-audio-sync changed the athan URLs; reload the package's
 # scripts and automations without restarting Home Assistant.
 if [[ "${1:-}" == "--package-only" ]]; then
   token="$(ha_value ATHAN_HA_TOKEN)"
-  for domain in script automation input_text; do
+  for domain in script automation input_text shell_command; do
     curl -fsS -o /dev/null -H "Authorization: Bearer $token" -X POST "http://127.0.0.1:8123/api/services/$domain/reload" || true
   done
   exit 0
