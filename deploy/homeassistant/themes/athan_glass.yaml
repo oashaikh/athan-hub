@@ -41,7 +41,8 @@ Athan Glass:
   rgb-state-media-player: "255, 209, 102"
   rgb-indigo: "255, 209, 102"
   rgb-state-script-color: "255, 209, 102"
-  app-header-background-color: "transparent"
+  # Solid enough that cards scrolling under the header (on phones) stay unreadable behind it.
+  app-header-background-color: "rgba(42, 17, 80, 0.92)"
   app-header-text-color: "#ffffff"
   app-header-edit-background-color: "#2a1150"
   sidebar-background-color: "#22103f"
