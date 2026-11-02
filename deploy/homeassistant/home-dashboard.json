@@ -412,27 +412,17 @@
       },
       "cards": [
         {
-          "type": "vertical-stack",
+          "type": "picture-glance",
           "view_layout": {
             "grid-area": "cam"
           },
-          "cards": [
+          "title": "TV room camera",
+          "camera_image": "camera.192_168_1_144",
+          "camera_view": "live",
+          "entities": [
             {
-              "type": "picture-entity",
-              "entity": "camera.192_168_1_144",
-              "name": "TV room camera",
-              "camera_view": "live",
-              "show_state": false,
-              "tap_action": {
-                "action": "more-info"
-              }
-            },
-            {
-              "type": "button",
               "entity": "script.camera_wifi_setup",
-              "name": "Camera Wi-Fi setup",
               "icon": "mdi:wifi-cog",
-              "show_state": false,
               "tap_action": {
                 "action": "more-info"
               }
