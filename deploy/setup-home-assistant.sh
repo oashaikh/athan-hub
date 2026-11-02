@@ -237,6 +237,45 @@ audio_url="${audio_url%%+*}"  # and only its first part
       printf '          data:\n'
       printf '            type: tts\n'
     fi
+    # Type a command on the dashboard and the Echo carries it out as if it had been said.
+    printf '  ask_alexa:\n'
+    printf '    alias: Send to Alexa\n'
+    printf '    icon: mdi:send\n'
+    printf '    sequence:\n'
+    printf "      - condition: template\n"
+    printf "        value_template: \"{{ states('input_text.alexa_command') | trim | length > 0 }}\"\n"
+    printf '      - action: media_player.play_media\n'
+    printf '        target:\n'
+    printf '          entity_id: media_player.%s\n' "${notify_service#alexa_media_}"
+    printf '        data:\n'
+    printf "          media_content_id: \"{{ states('input_text.alexa_command') }}\"\n"
+    printf '          media_content_type: custom\n'
+    printf '      - action: input_text.set_value\n'
+    printf '        target:\n'
+    printf '          entity_id: input_text.alexa_command\n'
+    printf '        data:\n'
+    printf '          value: ""\n'
+    printf 'input_text:\n'
+    printf '  alexa_command:\n'
+    printf '    name: Ask Alexa\n'
+    printf '    icon: mdi:message-text-outline\n'
+    printf '    max: 255\n'
+  fi
+  tv_mac="$(ha_value ATHAN_HA_TV_MAC)"
+  if [[ -n "$tv_entity" && -n "$tv_mac" ]]; then
+    # webOS TVs switch on over the network with a Wake-on-LAN packet; the webostv
+    # integration asks for it through this trigger.
+    printf 'wake_on_lan:\n'
+    printf 'automation tv_power:\n'
+    printf '  - id: athan_hub_tv_turn_on\n'
+    printf '    alias: Turn on the TV\n'
+    printf '    triggers:\n'
+    printf '      - trigger: webostv.turn_on\n'
+    printf '        entity_id: %s\n' "$tv_entity"
+    printf '    actions:\n'
+    printf '      - action: wake_on_lan.send_magic_packet\n'
+    printf '        data:\n'
+    printf '          mac: %s\n' "$tv_mac"
   fi
 } > "$CONFIG_DIR/packages/athan_hub.yaml"
 
@@ -244,7 +283,7 @@ audio_url="${audio_url%%+*}"  # and only its first part
 # scripts and automations without restarting Home Assistant.
 if [[ "${1:-}" == "--package-only" ]]; then
   token="$(ha_value ATHAN_HA_TOKEN)"
-  for domain in script automation; do
+  for domain in script automation input_text; do
     curl -fsS -o /dev/null -H "Authorization: Bearer $token" -X POST "http://127.0.0.1:8123/api/services/$domain/reload" || true
   done
   exit 0

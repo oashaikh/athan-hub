@@ -293,6 +293,27 @@
               "hold_action": {
                 "action": "none"
               }
+            },
+            {
+              "type": "entities",
+              "title": "Ask Alexa",
+              "show_header_toggle": false,
+              "entities": [
+                {
+                  "entity": "input_text.alexa_command",
+                  "name": "Type a command"
+                },
+                {
+                  "type": "button",
+                  "name": "The Hallway Echo Pop does it as if you said it",
+                  "icon": "mdi:send",
+                  "action_name": "Send",
+                  "tap_action": {
+                    "action": "perform-action",
+                    "perform_action": "script.ask_alexa"
+                  }
+                }
+              ]
             }
           ]
         },
@@ -366,6 +387,775 @@
           "card_mod": {
             "style": "ha-card { background: none !important; border: none !important; box-shadow: none !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }"
           }
+        }
+      ]
+    },
+    {
+      "title": "TV",
+      "path": "tv",
+      "icon": "mdi:remote-tv",
+      "theme": "Athan Glass",
+      "type": "custom:grid-layout",
+      "layout": {
+        "grid-template-columns": "minmax(0, 1fr) minmax(0, 1fr)",
+        "grid-template-areas": "\"now remote\" \"apps remote\"",
+        "grid-gap": "18px",
+        "padding": "8px 20px 24px",
+        "max-width": "1200px",
+        "mediaquery": {
+          "(max-width: 1000px)": {
+            "grid-template-columns": "minmax(0, 1fr)",
+            "grid-template-areas": "\"now\" \"remote\" \"apps\"",
+            "padding": "8px 12px 24px"
+          }
+        }
+      },
+      "cards": [
+        {
+          "type": "custom:mushroom-media-player-card",
+          "view_layout": {
+            "grid-area": "now"
+          },
+          "entity": "media_player.lg_webos_tv_65un85006la",
+          "name": "Living room TV",
+          "icon": "mdi:television",
+          "use_media_info": true,
+          "show_volume_level": true,
+          "collapsible_controls": false,
+          "volume_controls": [
+            "volume_mute",
+            "volume_set",
+            "volume_buttons"
+          ],
+          "media_controls": [
+            "on_off",
+            "play_pause_on",
+            "previous",
+            "next"
+          ],
+          "fill_container": false,
+          "tap_action": {
+            "action": "more-info"
+          }
+        },
+        {
+          "type": "vertical-stack",
+          "view_layout": {
+            "grid-area": "remote"
+          },
+          "cards": [
+            {
+              "type": "grid",
+              "columns": 3,
+              "square": false,
+              "cards": [
+                {
+                  "type": "button",
+                  "name": "Back",
+                  "icon": "mdi:arrow-u-left-top",
+                  "show_name": false,
+                  "show_icon": true,
+                  "tap_action": {
+                    "action": "perform-action",
+                    "perform_action": "webostv.button",
+                    "data": {
+                      "entity_id": "media_player.lg_webos_tv_65un85006la",
+                      "button": "BACK"
+                    }
+                  },
+                  "hold_action": {
+                    "action": "none"
+                  },
+                  "card_mod": {
+                    "style": "ha-card { min-height: 84px; } ha-state-icon { --mdc-icon-size: 34px; }"
+                  }
+                },
+                {
+                  "type": "button",
+                  "name": "Up",
+                  "icon": "mdi:chevron-up",
+                  "show_name": false,
+                  "show_icon": true,
+                  "tap_action": {
+                    "action": "perform-action",
+                    "perform_action": "webostv.button",
+                    "data": {
+                      "entity_id": "media_player.lg_webos_tv_65un85006la",
+                      "button": "UP"
+                    }
+                  },
+                  "hold_action": {
+                    "action": "none"
+                  },
+                  "card_mod": {
+                    "style": "ha-card { min-height: 84px; } ha-state-icon { --mdc-icon-size: 34px; }"
+                  }
+                },
+                {
+                  "type": "button",
+                  "name": "Home",
+                  "icon": "mdi:home",
+                  "show_name": false,
+                  "show_icon": true,
+                  "tap_action": {
+                    "action": "perform-action",
+                    "perform_action": "webostv.button",
+                    "data": {
+                      "entity_id": "media_player.lg_webos_tv_65un85006la",
+                      "button": "HOME"
+                    }
+                  },
+                  "hold_action": {
+                    "action": "none"
+                  },
+                  "card_mod": {
+                    "style": "ha-card { min-height: 84px; } ha-state-icon { --mdc-icon-size: 34px; }"
+                  }
+                }
+              ]
+            },
+            {
+              "type": "grid",
+              "columns": 3,
+              "square": false,
+              "cards": [
+                {
+                  "type": "button",
+                  "name": "Left",
+                  "icon": "mdi:chevron-left",
+                  "show_name": false,
+                  "show_icon": true,
+                  "tap_action": {
+                    "action": "perform-action",
+                    "perform_action": "webostv.button",
+                    "data": {
+                      "entity_id": "media_player.lg_webos_tv_65un85006la",
+                      "button": "LEFT"
+                    }
+                  },
+                  "hold_action": {
+                    "action": "none"
+                  },
+                  "card_mod": {
+                    "style": "ha-card { min-height: 84px; } ha-state-icon { --mdc-icon-size: 34px; }"
+                  }
+                },
+                {
+                  "type": "button",
+                  "name": "OK",
+                  "icon": "mdi:circle-medium",
+                  "show_name": true,
+                  "show_icon": true,
+                  "tap_action": {
+                    "action": "perform-action",
+                    "perform_action": "webostv.button",
+                    "data": {
+                      "entity_id": "media_player.lg_webos_tv_65un85006la",
+                      "button": "ENTER"
+                    }
+                  },
+                  "hold_action": {
+                    "action": "none"
+                  },
+                  "card_mod": {
+                    "style": "ha-card { min-height: 84px; } ha-state-icon { --mdc-icon-size: 34px; }"
+                  }
+                },
+                {
+                  "type": "button",
+                  "name": "Right",
+                  "icon": "mdi:chevron-right",
+                  "show_name": false,
+                  "show_icon": true,
+                  "tap_action": {
+                    "action": "perform-action",
+                    "perform_action": "webostv.button",
+                    "data": {
+                      "entity_id": "media_player.lg_webos_tv_65un85006la",
+                      "button": "RIGHT"
+                    }
+                  },
+                  "hold_action": {
+                    "action": "none"
+                  },
+                  "card_mod": {
+                    "style": "ha-card { min-height: 84px; } ha-state-icon { --mdc-icon-size: 34px; }"
+                  }
+                }
+              ]
+            },
+            {
+              "type": "grid",
+              "columns": 3,
+              "square": false,
+              "cards": [
+                {
+                  "type": "button",
+                  "name": "Settings",
+                  "icon": "mdi:cog",
+                  "show_name": false,
+                  "show_icon": true,
+                  "tap_action": {
+                    "action": "perform-action",
+                    "perform_action": "webostv.button",
+                    "data": {
+                      "entity_id": "media_player.lg_webos_tv_65un85006la",
+                      "button": "MENU"
+                    }
+                  },
+                  "hold_action": {
+                    "action": "none"
+                  },
+                  "card_mod": {
+                    "style": "ha-card { min-height: 84px; } ha-state-icon { --mdc-icon-size: 34px; }"
+                  }
+                },
+                {
+                  "type": "button",
+                  "name": "Down",
+                  "icon": "mdi:chevron-down",
+                  "show_name": false,
+                  "show_icon": true,
+                  "tap_action": {
+                    "action": "perform-action",
+                    "perform_action": "webostv.button",
+                    "data": {
+                      "entity_id": "media_player.lg_webos_tv_65un85006la",
+                      "button": "DOWN"
+                    }
+                  },
+                  "hold_action": {
+                    "action": "none"
+                  },
+                  "card_mod": {
+                    "style": "ha-card { min-height: 84px; } ha-state-icon { --mdc-icon-size: 34px; }"
+                  }
+                },
+                {
+                  "type": "button",
+                  "name": "Info",
+                  "icon": "mdi:information-outline",
+                  "show_name": false,
+                  "show_icon": true,
+                  "tap_action": {
+                    "action": "perform-action",
+                    "perform_action": "webostv.button",
+                    "data": {
+                      "entity_id": "media_player.lg_webos_tv_65un85006la",
+                      "button": "INFO"
+                    }
+                  },
+                  "hold_action": {
+                    "action": "none"
+                  },
+                  "card_mod": {
+                    "style": "ha-card { min-height: 84px; } ha-state-icon { --mdc-icon-size: 34px; }"
+                  }
+                }
+              ]
+            },
+            {
+              "type": "grid",
+              "columns": 3,
+              "square": false,
+              "cards": [
+                {
+                  "type": "button",
+                  "name": "Volume down",
+                  "icon": "mdi:volume-minus",
+                  "show_name": false,
+                  "show_icon": true,
+                  "tap_action": {
+                    "action": "perform-action",
+                    "perform_action": "webostv.button",
+                    "data": {
+                      "entity_id": "media_player.lg_webos_tv_65un85006la",
+                      "button": "VOLUMEDOWN"
+                    }
+                  },
+                  "hold_action": {
+                    "action": "none"
+                  },
+                  "card_mod": {
+                    "style": "ha-card { min-height: 84px; } ha-state-icon { --mdc-icon-size: 34px; }"
+                  }
+                },
+                {
+                  "type": "button",
+                  "name": "Mute",
+                  "icon": "mdi:volume-mute",
+                  "show_name": false,
+                  "show_icon": true,
+                  "tap_action": {
+                    "action": "perform-action",
+                    "perform_action": "webostv.button",
+                    "data": {
+                      "entity_id": "media_player.lg_webos_tv_65un85006la",
+                      "button": "MUTE"
+                    }
+                  },
+                  "hold_action": {
+                    "action": "none"
+                  },
+                  "card_mod": {
+                    "style": "ha-card { min-height: 84px; } ha-state-icon { --mdc-icon-size: 34px; }"
+                  }
+                },
+                {
+                  "type": "button",
+                  "name": "Volume up",
+                  "icon": "mdi:volume-plus",
+                  "show_name": false,
+                  "show_icon": true,
+                  "tap_action": {
+                    "action": "perform-action",
+                    "perform_action": "webostv.button",
+                    "data": {
+                      "entity_id": "media_player.lg_webos_tv_65un85006la",
+                      "button": "VOLUMEUP"
+                    }
+                  },
+                  "hold_action": {
+                    "action": "none"
+                  },
+                  "card_mod": {
+                    "style": "ha-card { min-height: 84px; } ha-state-icon { --mdc-icon-size: 34px; }"
+                  }
+                }
+              ]
+            },
+            {
+              "type": "grid",
+              "columns": 3,
+              "square": false,
+              "cards": [
+                {
+                  "type": "button",
+                  "name": "Channel down",
+                  "icon": "mdi:chevron-double-down",
+                  "show_name": false,
+                  "show_icon": true,
+                  "tap_action": {
+                    "action": "perform-action",
+                    "perform_action": "webostv.button",
+                    "data": {
+                      "entity_id": "media_player.lg_webos_tv_65un85006la",
+                      "button": "CHANNELDOWN"
+                    }
+                  },
+                  "hold_action": {
+                    "action": "none"
+                  },
+                  "card_mod": {
+                    "style": "ha-card { min-height: 84px; } ha-state-icon { --mdc-icon-size: 34px; }"
+                  }
+                },
+                {
+                  "type": "button",
+                  "name": "Play/pause",
+                  "icon": "mdi:play-pause",
+                  "show_name": false,
+                  "show_icon": true,
+                  "tap_action": {
+                    "action": "perform-action",
+                    "perform_action": "media_player.media_play_pause",
+                    "target": {
+                      "entity_id": "media_player.lg_webos_tv_65un85006la"
+                    }
+                  },
+                  "hold_action": {
+                    "action": "none"
+                  },
+                  "card_mod": {
+                    "style": "ha-card { min-height: 84px; } ha-state-icon { --mdc-icon-size: 34px; }"
+                  }
+                },
+                {
+                  "type": "button",
+                  "name": "Channel up",
+                  "icon": "mdi:chevron-double-up",
+                  "show_name": false,
+                  "show_icon": true,
+                  "tap_action": {
+                    "action": "perform-action",
+                    "perform_action": "webostv.button",
+                    "data": {
+                      "entity_id": "media_player.lg_webos_tv_65un85006la",
+                      "button": "CHANNELUP"
+                    }
+                  },
+                  "hold_action": {
+                    "action": "none"
+                  },
+                  "card_mod": {
+                    "style": "ha-card { min-height: 84px; } ha-state-icon { --mdc-icon-size: 34px; }"
+                  }
+                }
+              ]
+            },
+            {
+              "type": "grid",
+              "columns": 3,
+              "square": false,
+              "cards": [
+                {
+                  "type": "button",
+                  "name": "Power",
+                  "icon": "mdi:power",
+                  "show_name": false,
+                  "show_icon": true,
+                  "tap_action": {
+                    "action": "perform-action",
+                    "perform_action": "media_player.toggle",
+                    "target": {
+                      "entity_id": "media_player.lg_webos_tv_65un85006la"
+                    }
+                  },
+                  "hold_action": {
+                    "action": "none"
+                  },
+                  "card_mod": {
+                    "style": "ha-card { min-height: 84px; } ha-state-icon { --mdc-icon-size: 34px; }"
+                  }
+                },
+                {
+                  "type": "button",
+                  "name": "Exit",
+                  "icon": "mdi:close",
+                  "show_name": false,
+                  "show_icon": true,
+                  "tap_action": {
+                    "action": "perform-action",
+                    "perform_action": "webostv.button",
+                    "data": {
+                      "entity_id": "media_player.lg_webos_tv_65un85006la",
+                      "button": "EXIT"
+                    }
+                  },
+                  "hold_action": {
+                    "action": "none"
+                  },
+                  "card_mod": {
+                    "style": "ha-card { min-height: 84px; } ha-state-icon { --mdc-icon-size: 34px; }"
+                  }
+                },
+                {
+                  "type": "button",
+                  "name": "All apps & inputs",
+                  "icon": "mdi:apps",
+                  "show_name": false,
+                  "tap_action": {
+                    "action": "more-info",
+                    "entity": "media_player.lg_webos_tv_65un85006la"
+                  },
+                  "hold_action": {
+                    "action": "none"
+                  },
+                  "card_mod": {
+                    "style": "ha-card { min-height: 84px; } ha-state-icon { --mdc-icon-size: 34px; }"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "vertical-stack",
+          "view_layout": {
+            "grid-area": "apps"
+          },
+          "cards": [
+            {
+              "type": "markdown",
+              "content": "## Apps",
+              "card_mod": {
+                "style": "ha-card { background: none !important; border: none !important; box-shadow: none !important; backdrop-filter: none !important; }"
+              }
+            },
+            {
+              "type": "grid",
+              "columns": 3,
+              "square": false,
+              "cards": [
+                {
+                  "type": "button",
+                  "name": "Netflix",
+                  "icon": "mdi:netflix",
+                  "show_name": true,
+                  "show_icon": true,
+                  "tap_action": {
+                    "action": "perform-action",
+                    "perform_action": "media_player.select_source",
+                    "target": {
+                      "entity_id": "media_player.lg_webos_tv_65un85006la"
+                    },
+                    "data": {
+                      "source": "Netflix"
+                    }
+                  },
+                  "hold_action": {
+                    "action": "none"
+                  },
+                  "card_mod": {
+                    "style": "ha-card { min-height: 84px; } ha-state-icon { --mdc-icon-size: 34px; }"
+                  }
+                },
+                {
+                  "type": "button",
+                  "name": "YouTube",
+                  "icon": "mdi:youtube",
+                  "show_name": true,
+                  "show_icon": true,
+                  "tap_action": {
+                    "action": "perform-action",
+                    "perform_action": "media_player.select_source",
+                    "target": {
+                      "entity_id": "media_player.lg_webos_tv_65un85006la"
+                    },
+                    "data": {
+                      "source": "YouTube"
+                    }
+                  },
+                  "hold_action": {
+                    "action": "none"
+                  },
+                  "card_mod": {
+                    "style": "ha-card { min-height: 84px; } ha-state-icon { --mdc-icon-size: 34px; }"
+                  }
+                },
+                {
+                  "type": "button",
+                  "name": "Prime Video",
+                  "icon": "mdi:filmstrip",
+                  "show_name": true,
+                  "show_icon": true,
+                  "tap_action": {
+                    "action": "perform-action",
+                    "perform_action": "media_player.select_source",
+                    "target": {
+                      "entity_id": "media_player.lg_webos_tv_65un85006la"
+                    },
+                    "data": {
+                      "source": "Prime Video"
+                    }
+                  },
+                  "hold_action": {
+                    "action": "none"
+                  },
+                  "card_mod": {
+                    "style": "ha-card { min-height: 84px; } ha-state-icon { --mdc-icon-size: 34px; }"
+                  }
+                },
+                {
+                  "type": "button",
+                  "name": "Disney+",
+                  "icon": "mdi:castle",
+                  "show_name": true,
+                  "show_icon": true,
+                  "tap_action": {
+                    "action": "perform-action",
+                    "perform_action": "media_player.select_source",
+                    "target": {
+                      "entity_id": "media_player.lg_webos_tv_65un85006la"
+                    },
+                    "data": {
+                      "source": "Disney+"
+                    }
+                  },
+                  "hold_action": {
+                    "action": "none"
+                  },
+                  "card_mod": {
+                    "style": "ha-card { min-height: 84px; } ha-state-icon { --mdc-icon-size: 34px; }"
+                  }
+                },
+                {
+                  "type": "button",
+                  "name": "BBC iPlayer",
+                  "icon": "mdi:television-classic",
+                  "show_name": true,
+                  "show_icon": true,
+                  "tap_action": {
+                    "action": "perform-action",
+                    "perform_action": "media_player.select_source",
+                    "target": {
+                      "entity_id": "media_player.lg_webos_tv_65un85006la"
+                    },
+                    "data": {
+                      "source": "BBC iPlayer"
+                    }
+                  },
+                  "hold_action": {
+                    "action": "none"
+                  },
+                  "card_mod": {
+                    "style": "ha-card { min-height: 84px; } ha-state-icon { --mdc-icon-size: 34px; }"
+                  }
+                },
+                {
+                  "type": "button",
+                  "name": "Plex",
+                  "icon": "mdi:plex",
+                  "show_name": true,
+                  "show_icon": true,
+                  "tap_action": {
+                    "action": "perform-action",
+                    "perform_action": "media_player.select_source",
+                    "target": {
+                      "entity_id": "media_player.lg_webos_tv_65un85006la"
+                    },
+                    "data": {
+                      "source": "Plex"
+                    }
+                  },
+                  "hold_action": {
+                    "action": "none"
+                  },
+                  "card_mod": {
+                    "style": "ha-card { min-height: 84px; } ha-state-icon { --mdc-icon-size: 34px; }"
+                  }
+                },
+                {
+                  "type": "button",
+                  "name": "YouTube Kids",
+                  "icon": "mdi:youtube",
+                  "show_name": true,
+                  "show_icon": true,
+                  "tap_action": {
+                    "action": "perform-action",
+                    "perform_action": "media_player.select_source",
+                    "target": {
+                      "entity_id": "media_player.lg_webos_tv_65un85006la"
+                    },
+                    "data": {
+                      "source": "YouTube Kids"
+                    }
+                  },
+                  "hold_action": {
+                    "action": "none"
+                  },
+                  "card_mod": {
+                    "style": "ha-card { min-height: 84px; } ha-state-icon { --mdc-icon-size: 34px; }"
+                  }
+                },
+                {
+                  "type": "button",
+                  "name": "Live TV",
+                  "icon": "mdi:antenna",
+                  "show_name": true,
+                  "show_icon": true,
+                  "tap_action": {
+                    "action": "perform-action",
+                    "perform_action": "media_player.select_source",
+                    "target": {
+                      "entity_id": "media_player.lg_webos_tv_65un85006la"
+                    },
+                    "data": {
+                      "source": "Live TV"
+                    }
+                  },
+                  "hold_action": {
+                    "action": "none"
+                  },
+                  "card_mod": {
+                    "style": "ha-card { min-height: 84px; } ha-state-icon { --mdc-icon-size: 34px; }"
+                  }
+                },
+                {
+                  "type": "button",
+                  "name": "Athan Hub",
+                  "icon": "mdi:mosque",
+                  "show_name": true,
+                  "show_icon": true,
+                  "tap_action": {
+                    "action": "perform-action",
+                    "perform_action": "media_player.select_source",
+                    "target": {
+                      "entity_id": "media_player.lg_webos_tv_65un85006la"
+                    },
+                    "data": {
+                      "source": "Athan Hub"
+                    }
+                  },
+                  "hold_action": {
+                    "action": "none"
+                  },
+                  "card_mod": {
+                    "style": "ha-card { min-height: 84px; } ha-state-icon { --mdc-icon-size: 34px; }"
+                  }
+                },
+                {
+                  "type": "button",
+                  "name": "HDMI 1",
+                  "icon": "mdi:video-input-hdmi",
+                  "show_name": true,
+                  "show_icon": true,
+                  "tap_action": {
+                    "action": "perform-action",
+                    "perform_action": "media_player.select_source",
+                    "target": {
+                      "entity_id": "media_player.lg_webos_tv_65un85006la"
+                    },
+                    "data": {
+                      "source": "HDMI 1"
+                    }
+                  },
+                  "hold_action": {
+                    "action": "none"
+                  },
+                  "card_mod": {
+                    "style": "ha-card { min-height: 84px; } ha-state-icon { --mdc-icon-size: 34px; }"
+                  }
+                },
+                {
+                  "type": "button",
+                  "name": "HDMI 2",
+                  "icon": "mdi:video-input-hdmi",
+                  "show_name": true,
+                  "show_icon": true,
+                  "tap_action": {
+                    "action": "perform-action",
+                    "perform_action": "media_player.select_source",
+                    "target": {
+                      "entity_id": "media_player.lg_webos_tv_65un85006la"
+                    },
+                    "data": {
+                      "source": "HDMI 2"
+                    }
+                  },
+                  "hold_action": {
+                    "action": "none"
+                  },
+                  "card_mod": {
+                    "style": "ha-card { min-height: 84px; } ha-state-icon { --mdc-icon-size: 34px; }"
+                  }
+                },
+                {
+                  "type": "button",
+                  "name": "HDMI 3",
+                  "icon": "mdi:video-input-hdmi",
+                  "show_name": true,
+                  "show_icon": true,
+                  "tap_action": {
+                    "action": "perform-action",
+                    "perform_action": "media_player.select_source",
+                    "target": {
+                      "entity_id": "media_player.lg_webos_tv_65un85006la"
+                    },
+                    "data": {
+                      "source": "HDMI 3"
+                    }
+                  },
+                  "hold_action": {
+                    "action": "none"
+                  },
+                  "card_mod": {
+                    "style": "ha-card { min-height: 84px; } ha-state-icon { --mdc-icon-size: 34px; }"
+                  }
+                }
+              ]
+            }
+          ]
         }
       ]
     }
