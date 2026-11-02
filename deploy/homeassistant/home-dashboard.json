@@ -421,6 +421,54 @@
           "camera_view": "live",
           "entities": [
             {
+              "entity": "script.camera_move",
+              "icon": "mdi:arrow-left-bold",
+              "tap_action": {
+                "action": "perform-action",
+                "perform_action": "script.camera_move",
+                "data": {
+                  "pan": -0.6,
+                  "tilt": 0
+                }
+              }
+            },
+            {
+              "entity": "script.camera_move",
+              "icon": "mdi:arrow-up-bold",
+              "tap_action": {
+                "action": "perform-action",
+                "perform_action": "script.camera_move",
+                "data": {
+                  "pan": 0,
+                  "tilt": 0.6
+                }
+              }
+            },
+            {
+              "entity": "script.camera_move",
+              "icon": "mdi:arrow-down-bold",
+              "tap_action": {
+                "action": "perform-action",
+                "perform_action": "script.camera_move",
+                "data": {
+                  "pan": 0,
+                  "tilt": -0.6
+                }
+              }
+            },
+            {
+              "entity": "script.camera_move",
+              "icon": "mdi:arrow-right-bold",
+              "tap_action": {
+                "action": "perform-action",
+                "perform_action": "script.camera_move",
+                "data": {
+                  "pan": 0.6,
+                  "tilt": 0
+                }
+              }
+            },
+            {
               "entity": "script.camera_wifi_setup",
               "icon": "mdi:wifi-cog",
               "tap_action": {

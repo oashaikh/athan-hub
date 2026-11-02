@@ -319,6 +319,43 @@ audio_url="${audio_url%%+*}"  # and only its first part
   printf '          ssid: "{{ ssid }}"\n'
   printf '          password: "{{ password }}"\n'
 } > "$CONFIG_DIR/packages/athan_hub.yaml"
+# Pan and tilt the CAM720 camera. Its ONVIF service only understands unprefixed SOAP,
+# which Home Assistant's ONVIF integration does not send, so send it directly.
+camera_ip="$(ha_value ATHAN_HA_CAMERA_IP)"
+if [[ -n "$camera_ip" ]]; then
+  {
+    printf 'rest_command:\n'
+    printf '  camera_ptz:\n'
+    printf '    url: http://%s:8899/onvif/PTZ\n' "$camera_ip"
+    printf '    method: post\n'
+    printf '    content_type: application/soap+xml\n'
+    printf '    payload: >-\n'
+    printf '      <s:Envelope xmlns:s="http://www.w3.org/2003/05/soap-envelope" xmlns:tt="http://www.onvif.org/ver10/schema"><s:Body>{{ body }}</s:Body></s:Envelope>\n'
+    printf 'script camera_ptz:\n'
+    printf '  camera_move:\n'
+    printf '    alias: Move the camera\n'
+    printf '    icon: mdi:pan\n'
+    printf '    mode: restart\n'
+    printf '    fields:\n'
+    printf '      pan:\n'
+    printf '        selector:\n'
+    printf '          number: {min: -1, max: 1, step: 0.1}\n'
+    printf '      tilt:\n'
+    printf '        selector:\n'
+    printf '          number: {min: -1, max: 1, step: 0.1}\n'
+    printf '    sequence:\n'
+    printf '      - action: rest_command.camera_ptz\n'
+    printf '        data:\n'
+    printf '          body: >-\n'
+    printf '            <ContinuousMove xmlns="http://www.onvif.org/ver20/ptz/wsdl"><ProfileToken>profile_0</ProfileToken><Velocity><tt:PanTilt x="{{ pan | default(0) }}" y="{{ tilt | default(0) }}"/></Velocity></ContinuousMove>\n'
+    printf '      - delay: 0.6\n'
+    printf '      - action: rest_command.camera_ptz\n'
+    printf '        data:\n'
+    printf '          body: <Stop xmlns="http://www.onvif.org/ver20/ptz/wsdl"><ProfileToken>profile_0</ProfileToken><PanTilt>true</PanTilt></Stop>\n'
+  } > "$CONFIG_DIR/packages/athan_hub_camera.yaml"
+else
+  rm -f "$CONFIG_DIR/packages/athan_hub_camera.yaml"
+fi
 install -d -m 0700 "$CONFIG_DIR/athan"
 cat > "$CONFIG_DIR/athan/camera-wifi-request" <<'SH'
 #!/bin/sh
@@ -331,7 +368,7 @@ chmod 0700 "$CONFIG_DIR/athan/camera-wifi-request"
 # scripts and automations without restarting Home Assistant.
 if [[ "${1:-}" == "--package-only" ]]; then
   token="$(ha_value ATHAN_HA_TOKEN)"
-  for domain in script automation input_text shell_command; do
+  for domain in script automation input_text shell_command rest_command; do
     curl -fsS -o /dev/null -H "Authorization: Bearer $token" -X POST "http://127.0.0.1:8123/api/services/$domain/reload" || true
   done
   exit 0
