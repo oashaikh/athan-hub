@@ -53,6 +53,17 @@ if [[ ! -f "$CONFIG_DIR/custom_components/alexa_media/manifest.json" ]]; then
   rm -rf "$tmp"
 fi
 
+# WebRTC Camera gives the dashboard's camera card live video, sound and pan/tilt arrows.
+# Its go2rtc only listens on this machine, so camera streams are not reshared on the network.
+if [[ ! -f "$CONFIG_DIR/custom_components/webrtc/manifest.json" ]]; then
+  log "Installing WebRTC Camera"
+  tmp="$(mktemp -d)"
+  curl -fsSL https://github.com/AlexxIT/WebRTC/archive/refs/tags/v3.6.1.tar.gz | tar xz -C "$tmp"
+  cp -r "$tmp/WebRTC-3.6.1/custom_components/webrtc" "$CONFIG_DIR/custom_components/"
+  rm -rf "$tmp"
+fi
+[[ -f "$CONFIG_DIR/go2rtc.yaml" ]] || printf 'api:\n  listen: 127.0.0.1:1984\nrtsp:\n  listen: 127.0.0.1:8554\n' > "$CONFIG_DIR/go2rtc.yaml"
+
 # Packages hold the Athan Hub additions so configuration.yaml stays the default.
 if [[ -f "$CONFIG_DIR/configuration.yaml" ]] && ! grep -q '^  packages:' "$CONFIG_DIR/configuration.yaml"; then
   printf '\nhomeassistant:\n  packages: !include_dir_named packages\n' >> "$CONFIG_DIR/configuration.yaml"
