@@ -412,39 +412,51 @@
       },
       "cards": [
         {
-          "type": "custom:webrtc-camera",
+          "type": "vertical-stack",
           "view_layout": {
             "grid-area": "cam"
           },
-          "entity": "camera.192_168_1_144",
-          "title": "Kids bedroom",
-          "media": "video,audio",
-          "muted": true,
-          "ui": true,
-          "ptz": {
-            "service": "script.camera_move",
-            "data_left": {
-              "pan": -0.6,
-              "tilt": 0
-            },
-            "data_right": {
-              "pan": 0.6,
-              "tilt": 0
-            },
-            "data_up": {
-              "pan": 0,
-              "tilt": 0.6
-            },
-            "data_down": {
-              "pan": 0,
-              "tilt": -0.6
-            }
-          },
-          "shortcuts": [
+          "cards": [
             {
-              "name": "Camera Wi-Fi setup",
-              "icon": "mdi:wifi-cog",
-              "more_info": "script.camera_wifi_setup"
+              "type": "custom:webrtc-camera",
+              "entity": "camera.192_168_1_144",
+              "title": "Kids bedroom",
+              "media": "video,audio",
+              "muted": true,
+              "ui": true,
+              "ptz": {
+                "service": "script.camera_move",
+                "data_left": {
+                  "pan": -0.6,
+                  "tilt": 0
+                },
+                "data_right": {
+                  "pan": 0.6,
+                  "tilt": 0
+                },
+                "data_up": {
+                  "pan": 0,
+                  "tilt": 0.6
+                },
+                "data_down": {
+                  "pan": 0,
+                  "tilt": -0.6
+                }
+              },
+              "shortcuts": [
+                {
+                  "name": "Camera Wi-Fi setup",
+                  "icon": "mdi:wifi-cog",
+                  "more_info": "script.camera_wifi_setup"
+                }
+              ]
+            },
+            {
+              "type": "custom:webrtc-camera",
+              "entity": "camera.192_168_1_144_2",
+              "media": "video,audio",
+              "muted": true,
+              "ui": true
             }
           ]
         },
