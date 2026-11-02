@@ -86,7 +86,9 @@ To keep a device off the internet entirely (for example a camera that should onl
 
 A CAM720 (Jooan) camera can be put back on Wi-Fi after a reset without the CAM720 app: run the **Camera Wi-Fi setup** script in Home Assistant (button on the TV page) with the Wi-Fi name and password, or `sudo camera-wifi "<Wi-Fi name>"`. It joins the camera's `JA-...` setup hotspot with this machine's Wi-Fi adapter and sends it the Wi-Fi details, the same request the app makes.
 
-The TV page's camera card uses WebRTC Camera, which the installer copies into Home Assistant; add it once under Settings > Devices & services > Add integration > WebRTC Camera. The camera's second lens is `rtsp://<camera>:554/live/ch01_0` (add it as another Generic Camera). Two-way talk is not possible from Home Assistant: the camera only accepts talk-back over the CAM720 app's encrypted peer-to-peer channel, which the app finds through Jooan's cloud.
+The TV page's camera card uses WebRTC Camera, which the installer copies into Home Assistant; add it once under Settings > Devices & services > Add integration > WebRTC Camera. The camera's second lens is `rtsp://<camera>:554/live/ch01_0` (add it as another Generic Camera).
+
+Two-way talk goes over the camera's ThroughTek Kalay DTLS channel. The sign-in key, `device_pwd`, is held in Jooan's cloud and reaches Home Assistant through a one-time extraction with a Windows CAM720 install and a trusted mitmproxy run from the Hub. The procedure, the protocol notes and the open research questions are in [docs/CAM720.md](docs/CAM720.md). Once extracted, the token goes in `/etc/athan-hub/athan-hub.env` as `ATHAN_HA_CAMERA_P2P_TOKEN=` and the camera can be blocked from the internet at the router.
 
 For access away from home, install Tailscale (free for personal use) and sign in: `curl -fsSL https://tailscale.com/install.sh | sh`, then `sudo tailscale up --accept-dns=false --hostname=athan`. `--accept-dns=false` keeps the machine on its own DNS, so Pi-hole is unaffected. Home Assistant is then reachable at `http://athan` from any device signed in to the same Tailscale account. Tailscale SSH is not needed and stays off.
 
