@@ -82,7 +82,7 @@
           "columns": 2,
           "square": false,
           "card_mod": {
-            "style": "ha-card { background: none !important; border: none !important; box-shadow: none !important; backdrop-filter: none !important; }"
+            "style": "ha-card { background: none !important; border: none !important; box-shadow: none !important; backdrop-filter: none !important; } @media (max-width: 700px) { :host { --grid-card-column-count: 1 !important; } }"
           },
           "cards": [
             {
