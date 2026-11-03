@@ -49,3 +49,17 @@ pkg_tutk_dtls_dtls.go    -> pkg/tutk/dtls/dtls.go (modified)
 pkg_tutk_dtls_conn_dtls.go -> pkg/tutk/dtls/conn_dtls.go (modified)
 main.go                   -> main.go (modified: adds cam720 Init)
 ```
+
+## cmd/mitm — DTLS man-in-the-middle for CAM720
+
+`cmd/mitm/main.go` (shipped here as `cmd_mitm_main.go`) wraps the local build
+as a DTLS proxy for reversing the Jooan phone/desktop app's AV protocol.
+Deployment lives in [`deploy/cam720-dtls-mitm.sh`](../deploy/cam720-dtls-mitm.sh)
+on the Hub: it brings up a dedicated Wi-Fi (`Athan-capture`), redirects UDP
+32761 from that subnet to a local DTLS proxy on `10.77.0.1:33000`, and the
+proxy terminates with the PSK derived from `device_pwd` on both sides.
+
+Point the phone at Athan-capture, open the camera in CAM720, and the proxy
+logs the plaintext of every TUTK AV packet in both directions
+(`journalctl -u dtls-mitm`). That's the trace the next session needs to pin
+down the exact IPCAM_START payload CAM720 wants.
