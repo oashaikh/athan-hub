@@ -471,7 +471,11 @@ func (c *DTLSConn) OpenAudioChannelCAM720(username, password string) error {
 func (c *DTLSConn) OpenSpeakerCAM720WithChan(serverCh uint32) error {
 	body := make([]byte, 8)
 	binary.LittleEndian.PutUint32(body, serverCh)
-	return c.WriteIOCtrlStd(848, body)
+	// Jooan's dispatch table (firmware MIPS @ 0x93bb98) maps IOCtrl 0x351
+	// (849) to handle_DP_TalkBack_Start. IOCtrl 848 (standard TUTK
+	// SPEAKERSTART) routes to a different handler on this firmware and
+	// never spawns IPC_Media_SpeakerThread.
+	return c.WriteIOCtrlStd(849, body)
 }
 func (c *DTLSConn) OpenSpeakerCAM720() error { return c.OpenSpeakerCAM720WithChan(0) }
 
@@ -501,12 +505,14 @@ func (c *DTLSConn) SendAudioCAM720Mode(m string) { prefixFrameInfo = (m == "pref
 func (c *DTLSConn) SendAudioCAM720(codecID uint16, flags byte, pcm []byte) error {
 	c.audioFrameNo++
 	n := uint16(len(pcm))
-	// Match pkg/tutk/session16.go SendFrameData: payload + ODUA(8) + 32-byte trailer
-	// where frameInfo (16 bytes) occupies the first half of the trailer.
-	dataSize := uint16(len(pcm)) + 8 + 32
+	// Mirror pkg/tutk/session16.go SendFrameData exactly — the only
+	// proven-interoperable TUTK wire format in this tree: payload +
+	// "ODUA\x20\x00\x00\x00" (8) + a 32-byte frameInfo region (n + 8 + 32).
+	// avRecvAudioData reads only the first 16 bytes of that region as the
+	// AVFrame frameInfo; the remaining 16 stay zero.
+	dataSize := n + 8 + 32
 	if prefixFrameInfo {
-		// Alternate: frameInfo(16) + payload. No ODUA trailer.
-		dataSize = 16 + uint16(len(pcm))
+		dataSize = 16 + n
 	}
 	total := 28 + 24 + int(dataSize)
 	b := make([]byte, total)
@@ -519,7 +525,7 @@ func (c *DTLSConn) SendAudioCAM720(codecID uint16, flags byte, pcm []byte) error
 	b[16] = 0x0c
 	copy(b[20:28], c.sid)
 
-	// 24-byte cmd header (frame-data variant)
+	// 24-byte cmd header (frame-data variant), byte1=0x03 = audio channel
 	cmd := b[28:]
 	copy(cmd, []byte{0x01, 0x03, 0x0b, 0x00})
 	c.audioSeq++
@@ -530,24 +536,19 @@ func (c *DTLSConn) SendAudioCAM720(codecID uint16, flags byte, pcm []byte) error
 	binary.LittleEndian.PutUint16(cmd[18:], uint16(time.Now().UnixMilli()))
 	cmd[20] = 1
 
-	// Payload + trailer (or prefix layout)
 	data := cmd[24:]
 	if prefixFrameInfo {
 		fi := data[:16]
 		binary.LittleEndian.PutUint16(fi[0:], codecID)
 		fi[2] = flags
-		fi[3] = 0
-		fi[4] = 0
 		binary.LittleEndian.PutUint32(fi[12:], uint32(time.Now().UnixMilli()))
 		copy(data[16:], pcm)
 	} else {
 		copy(data, pcm)
 		copy(data[n:], []byte{'O', 'D', 'U', 'A', 0x20, 0x00, 0x00, 0x00})
-		fi := data[n+8:]
+		fi := data[n+8:] // 32-byte region; we fill the first 16
 		binary.LittleEndian.PutUint16(fi[0:], codecID)
 		fi[2] = flags
-		fi[3] = 0
-		fi[4] = 0
 		binary.LittleEndian.PutUint32(fi[12:], uint32(time.Now().UnixMilli()))
 	}
 
