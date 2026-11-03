@@ -190,6 +190,25 @@ What's left is either:
   `Athan-capture` SSID, open the CAM720 app, hit Live, and tail
   `journalctl -u dtls-mitm` for the exact IPCAM_START IOCtrl payload.
 
+### Talk-back path requires TUTK multi-channel (open blocker)
+
+Read in w.java (Android `ThreadSendAudio`):
+
+```java
+int freeChannel = IOTCAPIs.IOTC_Session_Get_Free_Channel(sid);
+TK_sendIOCtrlToChannel(mainCh, 848, SMsgAVIoctrlAVStream.parseContent(freeChannel, 0));
+st_AVServStartInConfig cfg = new ...; cfg.iotc_session_id = sid; cfg.iotc_channel_id = freeChannel; cfg.security_mode = 2;
+cfg.password_auth = Y; cfg.token_auth = FI8ekqA; cfg.change_password_request = zx; ...
+int audioAvIndex = AVAPIs.avServStartEx(cfg, ...);
+AVAPIs.avSendAudioData(audioAvIndex, pcm, len(pcm), AVFrame.parseFrameInfo(codec, flags, 0, 0, ts), 16);
+```
+
+Confirmed in live tests (`cmd/avdrive`):
+
+- IOCtrl 848 (SPEAKERSTART) is ACKed by the camera with vendor IOCtrl `0x40` (payload `00 01 00 00` initially; after N frames arrive the first byte advances, e.g. `6e 01 00 00` = 0x16E = 366). The camera is *counting* received frames but not routing them to the speaker.
+- Blind frame sends via the single DTLS tunnel never play audibly — tried: SPEEX (141) 38-byte frames, G.711 μ-law (137) 160-byte frames, frameInfo as Session16 trailer and as prefix, server-channel = 0 and = 1, 10s and 60s bursts at max amplitude.
+- The real app opens a *second* IOTC data channel inside the TUTK session, re-authenticates with password/token callbacks, and sends audio on that new channel's avIndex. Our pion DTLS layer gives us one data channel; TUTK's own session multiplexing inside the DTLS tunnel needs to be ported from `IOTCAPIs.IOTC_Session_Get_Free_Channel` + the native `avServStartEx` flow before `avSendAudioData` has any effect.
+
 ### Android app IOCtrl sequence (from Jadx)
 
 Verified by reading `com/jooan/androidmysdk/live/bean/MYCameraBase.java`
