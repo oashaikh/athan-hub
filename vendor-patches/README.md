@@ -63,3 +63,28 @@ Point the phone at Athan-capture, open the camera in CAM720, and the proxy
 logs the plaintext of every TUTK AV packet in both directions
 (`journalctl -u dtls-mitm`). That's the trace the next session needs to pin
 down the exact IPCAM_START payload CAM720 wants.
+
+## Trace discoveries
+
+In session 2026-11-03 we captured the real CAM720 phone-app ↔ camera traffic
+on the Hub's isolated Wi-Fi (`Athan-capture`). Both `live.pcap` captures
+(not committed; they live in `~/scratchpad/`) confirmed the real protocol:
+
+- **The transport is `TUTK Session16 scramble + DTLS inside`**. The outer
+  envelope is 28 bytes starting with `04 02 1d 0b | body-size | seq |
+  07 04 21 00 | sid16`, with the first 16 bytes Kalay-scrambled, and the
+  DTLS 1.2 record follows at offset 28. Upstream go2rtc's `msgTxData`
+  hardcodes version `0x1a` (Wyze) — patched to `0x1d` for CAM720.
+- **The handshake uses `TLS_PSK_WITH_AES_128_CBC_SHA256` with EMS**.
+  Identity is `AUTHPWD_admin`, PSK is `SHA256(device_pwd)`. Confirmed in
+  the ServerHello extensions (`0x0017`).
+- **Live-view AV data is sent as DTLS application records (type 23) at
+  epoch 1**, 624-byte records (16-byte IV + 608-byte ciphertext).
+- `traces/decrypt_cam.py` and `traces/decrypt_ems.py` are the local Python
+  decoders that read a `.pcap`, run every UDP payload back through
+  `tutk.ReverseTransCode`, extract DTLS records, derive the master
+  secret from the known PSK plus the recorded handshake randoms, and
+  attempt to decrypt the AV frames. They currently extract correct
+  handshake bytes but the EMS-derived keys do not open the application
+  records — the PRF implementation needs a cross-check against pion/dtls
+  before plaintext can be read. That's the one remaining blocker.

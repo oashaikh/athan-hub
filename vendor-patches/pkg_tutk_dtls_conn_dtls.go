@@ -919,7 +919,10 @@ func (c *DTLSConn) msgAudioFrame(payload []byte, timestampUS uint32, codec byte,
 func (c *DTLSConn) msgTxData(payload []byte, channel byte) []byte {
 	bodySize := 12 + len(payload)
 	b := make([]byte, 16+bodySize)
-	copy(b, "\x04\x02\x1a\x0b")                            // marker + mode=data
+	// marker + mode=data; use the camera-reported protocol version at byte 2
+	// (0x1a for Wyze, 0x1d for CAM720) so the firmware recognises the frame.
+	// CAM720 firmware uses version 0x1d. Upstream Wyze code used 0x1a.
+	copy(b, []byte{0x04, 0x02, 0x1d, 0x0b})
 	binary.LittleEndian.PutUint16(b[4:], uint16(bodySize)) // body size
 	binary.LittleEndian.PutUint16(b[6:], c.seq)            // sequence
 	c.seq++
