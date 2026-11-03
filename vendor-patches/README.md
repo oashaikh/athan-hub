@@ -161,3 +161,33 @@ expected Finished prefix `14 00 00 0c`. That rules out IV/key alignment
 bugs. The outstanding hypothesis — that `0x00ae` in this firmware uses
 a nonstandard KDF or MAC placement despite its RFC name — needs an
 OpenSSL `s_server`-vs-firmware comparison to settle definitively.
+
+### Hypothesis sweep exhausted
+
+Confirmed in a follow-on pass:
+
+- Camera accepts handshakes with EMS **enabled** AND **disabled** —
+  running local `camtest` with `ExtendedMasterSecret: DisableExtendedMasterSecret`
+  still prints `AV LOGIN OK two-way: true`. Pion either way derives distinct
+  session keys; firmware tolerates both silently.
+- Both the RFC-standard `TLS_PSK_WITH_AES_128_CBC_SHA256` layout (CMK 32 +
+  SMK 32 + CEK 16 + SEK 16) and a plausible SHA-1-MAC fallback layout
+  (CMK 20 + SMK 20 + CEK 16 + SEK 16) were tried against the captured
+  Finished record. No key-slot offset produces the expected plaintext
+  prefix `14 00 00 0c`.
+
+What's left is either:
+
+- An OpenSSL `s_server -psk <device_pwd-SHA256-hex>` against the firmware
+  using the same ClientHello, with `-trace` on both sides, to spot the
+  exact divergence; or
+- Reading the firmware's DTLS implementation. The TUTK libraries that
+  Jadx shows are the Android apk's view — the camera-side binary is in
+  the vendor's own firmware blob.
+
+Both are bench work, not reach-further-tonight work. The protocol RE is
+otherwise complete: DTLS inside Session16-scramble, version `0x1d`,
+IPCAM_START IOCTRL at 511 with `SMsgAVIoctrlAVStream` body (channel 0,
+option 0), speaker open at IOCTRL 848 before `AVSendAudioData` on main
+channel, every piece documented at the byte level in `docs/CAM720.md`
+and this file.
