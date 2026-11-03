@@ -409,6 +409,21 @@ func (c *DTLSConn) WriteIOCtrlStd(ctrlType uint32, ctrlData []byte) error {
 	return err
 }
 
+// RecvIOCtrlRaw pulls one raw IOCtrl command the worker has queued, with a
+// timeout. Returns (ctrlType, body, err) parsed out of the standard IOCtrl
+// wrapper (magic 0x1000, 36 bytes total, 4-byte ctrlType at offset 28).
+func (c *DTLSConn) RecvIOCtrlRaw(timeout time.Duration) (uint32, []byte, error) {
+	select {
+	case data, ok := <-c.rawCmd:
+		if !ok { return 0, nil, fmt.Errorf("closed") }
+		if len(data) < 32 { return 0, nil, fmt.Errorf("short %d", len(data)) }
+		ct := binary.LittleEndian.Uint32(data[28:])
+		return ct, data[32:], nil
+	case <-time.After(timeout):
+		return 0, nil, fmt.Errorf("timeout")
+	}
+}
+
 // OpenSpeakerCAM720 opens the speaker channel using IOCtrl 848
 // (IOTYPE_USER_IPCAM_SPEAKERSTART). Must be called once before any
 // SendAudioCAM720. Payload is SMsgAVIoctrlAVStream(channel=0, option=0).
@@ -432,7 +447,9 @@ func (c *DTLSConn) OpenSpeakerCAM720() error {
 func (c *DTLSConn) SendAudioCAM720(codecID uint16, flags byte, pcm []byte) error {
 	c.audioFrameNo++
 	n := uint16(len(pcm))
-	dataSize := uint16(len(pcm)) + 8 + 16 // payload + ODUA(8) + frameInfo(16)
+	// Match pkg/tutk/session16.go SendFrameData: payload + ODUA(8) + 32-byte trailer
+	// where frameInfo (16 bytes) occupies the first half of the trailer.
+	dataSize := uint16(len(pcm)) + 8 + 32
 	total := 28 + 24 + int(dataSize)
 	b := make([]byte, total)
 
