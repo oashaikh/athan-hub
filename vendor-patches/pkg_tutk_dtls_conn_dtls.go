@@ -426,11 +426,16 @@ func (c *DTLSConn) RecvIOCtrlRaw(timeout time.Duration) (uint32, []byte, error) 
 
 // OpenSpeakerCAM720 opens the speaker channel using IOCtrl 848
 // (IOTYPE_USER_IPCAM_SPEAKERSTART). Must be called once before any
-// SendAudioCAM720. Payload is SMsgAVIoctrlAVStream(channel=0, option=0).
-func (c *DTLSConn) OpenSpeakerCAM720() error {
+// SendAudioCAM720. Payload is SMsgAVIoctrlAVStream(channel=serverCh, option=0).
+// Per Android w.java, serverCh is the ID of a NEW IOTC channel the client
+// has allocated and will stream reverse audio on; passing 0 makes the camera
+// count frames but not play them.
+func (c *DTLSConn) OpenSpeakerCAM720WithChan(serverCh uint32) error {
 	body := make([]byte, 8)
+	binary.LittleEndian.PutUint32(body, serverCh)
 	return c.WriteIOCtrlStd(848, body)
 }
+func (c *DTLSConn) OpenSpeakerCAM720() error { return c.OpenSpeakerCAM720WithChan(0) }
 
 // SendAudioCAM720 sends one PCM/G.711 chunk to the camera's speaker using
 // the Session16 "SendFrameData" layout observed in the Android app:
@@ -444,12 +449,27 @@ func (c *DTLSConn) OpenSpeakerCAM720() error {
 // 0x8C for PCM 16-bit). flags byte = channelCfg | (srIdx<<2) | (dataBits<<1):
 //   mono=0, 8kHz srIdx=0, 16bit dataBits=1 → flags=0x02.
 //   16kHz srIdx=2 → flags=0x0A.
+// prefixFrameInfo: when true, frameInfo (16B) is written BEFORE the PCM payload,
+// following the ThroughTek convention `avSendAudioData` native uses on many
+// vendors (frame_info || pcm). When false, we use the Session16 reference
+// layout (pcm || "ODUA\x20\x00\x00\x00" || frameInfo). Set via SendAudioCAM720Mode.
+var prefixFrameInfo = false
+
+// SendAudioCAM720Mode switches the frame layout for subsequent SendAudioCAM720
+// calls. "prefix" places the 16-byte frameInfo before the PCM; any other value
+// uses the Session16 trailer layout.
+func (c *DTLSConn) SendAudioCAM720Mode(m string) { prefixFrameInfo = (m == "prefix") }
+
 func (c *DTLSConn) SendAudioCAM720(codecID uint16, flags byte, pcm []byte) error {
 	c.audioFrameNo++
 	n := uint16(len(pcm))
 	// Match pkg/tutk/session16.go SendFrameData: payload + ODUA(8) + 32-byte trailer
 	// where frameInfo (16 bytes) occupies the first half of the trailer.
 	dataSize := uint16(len(pcm)) + 8 + 32
+	if prefixFrameInfo {
+		// Alternate: frameInfo(16) + payload. No ODUA trailer.
+		dataSize = 16 + uint16(len(pcm))
+	}
 	total := 28 + 24 + int(dataSize)
 	b := make([]byte, total)
 
@@ -472,16 +492,26 @@ func (c *DTLSConn) SendAudioCAM720(codecID uint16, flags byte, pcm []byte) error
 	binary.LittleEndian.PutUint16(cmd[18:], uint16(time.Now().UnixMilli()))
 	cmd[20] = 1
 
-	// Payload + trailer
+	// Payload + trailer (or prefix layout)
 	data := cmd[24:]
-	copy(data, pcm)
-	copy(data[n:], []byte{'O', 'D', 'U', 'A', 0x20, 0x00, 0x00, 0x00})
-	fi := data[n+8:]
-	binary.LittleEndian.PutUint16(fi[0:], codecID)
-	fi[2] = flags
-	fi[3] = 0
-	fi[4] = 0
-	binary.LittleEndian.PutUint32(fi[12:], uint32(time.Now().UnixMilli()))
+	if prefixFrameInfo {
+		fi := data[:16]
+		binary.LittleEndian.PutUint16(fi[0:], codecID)
+		fi[2] = flags
+		fi[3] = 0
+		fi[4] = 0
+		binary.LittleEndian.PutUint32(fi[12:], uint32(time.Now().UnixMilli()))
+		copy(data[16:], pcm)
+	} else {
+		copy(data, pcm)
+		copy(data[n:], []byte{'O', 'D', 'U', 'A', 0x20, 0x00, 0x00, 0x00})
+		fi := data[n+8:]
+		binary.LittleEndian.PutUint16(fi[0:], codecID)
+		fi[2] = flags
+		fi[3] = 0
+		fi[4] = 0
+		binary.LittleEndian.PutUint32(fi[12:], uint32(time.Now().UnixMilli()))
+	}
 
 	_, err := c.clientConn.Write(b)
 	return err

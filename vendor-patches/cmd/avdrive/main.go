@@ -31,8 +31,31 @@ func main() {
 	if err = c.AVClientStart(5 * time.Second); err != nil { fmt.Println("av:", err); return }
 	fmt.Println("AV LOGIN OK two-way:", c.HasTwoWayStreaming())
 
-	fmt.Println(">> 848 OpenSpeakerCAM720")
-	if err := c.OpenSpeakerCAM720(); err != nil { fmt.Println("w848:", err); return }
+	fmt.Println(">> 810 GetAudioOutFormat")
+	if err := c.WriteIOCtrlStd(810, make([]byte, 8)); err != nil { fmt.Println("w810:", err); return }
+	time.Sleep(500 * time.Millisecond)
+
+	// Drain IOCtrl responses, note camera-advertised codec from 811 if seen
+	advertisedCodec := uint16(141)
+	advertisedFlags := byte(0x02)
+	for i := 0; i < 6; i++ {
+		if ct, data, err := c.RecvIOCtrlRaw(500 * time.Millisecond); err == nil {
+			fmt.Printf("<< IOCtrl 0x%x(%d) %d bytes %s\n", ct, ct, len(data), hex.EncodeToString(data))
+			if ct == 811 && len(data) >= 8 {
+				c := binary.LittleEndian.Uint32(data[4:])
+				advertisedCodec = uint16(c)
+				fmt.Printf(">>> camera advertises codec = %d (0x%x)\n", c, c)
+			}
+		}
+	}
+
+	serverCh, _ := strconv.Atoi(os.Getenv("SERVER_CHAN"))
+	if m := os.Getenv("FRAMEINFO"); m != "" {
+		c.SendAudioCAM720Mode(m)
+		fmt.Printf("### frameInfo mode = %s\n", m)
+	}
+	fmt.Printf(">> 848 OpenSpeakerCAM720WithChan(%d)\n", serverCh)
+	if err := c.OpenSpeakerCAM720WithChan(uint32(serverCh)); err != nil { fmt.Println("w848:", err); return }
 	time.Sleep(1500 * time.Millisecond)
 
 	for i := 0; i < 3; i++ {
@@ -40,28 +63,38 @@ func main() {
 			fmt.Printf("<< IOCtrl 0x%x(%d) %d bytes %s\n", ct, ct, len(data), hex.EncodeToString(data))
 		}
 	}
+	_ = advertisedFlags
 
 	var frames [][]byte
+	frameSize, _ := strconv.Atoi(os.Getenv("FRAME_SIZE"))
+	if frameSize == 0 {
+		frameSize = 38 // speex narrowband default
+	}
 	if speexFile != "" {
 		data, err := ioutil.ReadFile(speexFile)
-		if err != nil { fmt.Println("speex read:", err); return }
-		// Narrowband mode 5 → 38 bytes per frame
-		for i := 0; i+38 <= len(data); i += 38 {
-			frames = append(frames, data[i:i+38])
+		if err != nil { fmt.Println("read:", err); return }
+		for i := 0; i+frameSize <= len(data); i += frameSize {
+			frames = append(frames, data[i:i+frameSize])
 		}
-		fmt.Printf("loaded %d speex frames\n", len(frames))
+		fmt.Printf("loaded %d frames of %d bytes\n", len(frames), frameSize)
 	} else {
 		pcm := make([]byte, 160)
 		for i := range pcm { pcm[i] = 0xFF }
 		for i := 0; i < 10; i++ { frames = append(frames, pcm) }
 	}
 
-	// Codec 141 = SPEEX, flags for 8kHz mono 16bit: 0 | (0<<2) | (1<<1) = 0x02
-	codec := uint16(141)
-	flags := byte(0x02)
-	if speexFile == "" {
-		codec = 0x8A // G.711 A-law for the silent test
+	codec := advertisedCodec
+	if cs := os.Getenv("CODEC"); cs != "" {
+		if v, _ := strconv.Atoi(cs); v > 0 { codec = uint16(v) }
 	}
+	flags := byte(0x02)
+	if fs := os.Getenv("FLAGS"); fs != "" {
+		if v, _ := strconv.ParseInt(fs, 0, 16); v != 0 { flags = byte(v) }
+	}
+	if speexFile == "" {
+		codec = 0x8A
+	}
+	fmt.Printf("### using codec=%d flags=0x%x for frames\n", codec, flags)
 
 	for i, f := range frames {
 		if err := c.SendAudioCAM720(codec, flags, f); err != nil {
