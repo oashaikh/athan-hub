@@ -115,3 +115,32 @@ record and seeing exactly what AES produces, independent of pion.
 `cmd_decode_main.go` runs the raw Kalay Transcode on captured UDP
 payloads so each packet's TUTK envelope and inner DTLS record can be
 inspected.
+
+### PSK verification confirmed; decryption anomaly remains
+
+The camera *does* verify the PSK during handshake: running the local
+`camtest` with `CAM_PASS=wrong_token` produces
+`handshake error: alert: Alert Fatal: BadRecordMac`, while the real token
+produces `AV LOGIN OK two-way: true`. So the authenticated PSK is
+`SHA256(device_pwd)`, and the camtest handshake success is real, not a
+firmware accept-any-PSK bug.
+
+Yet the application records in the captured phone↔camera session (`live2.pcap`,
+not committed) still won't decrypt with the derived `cek`, even after
+exhaustive sweep of EMS/non-EMS, both key-expansion seed orders, and every
+16-byte slot of the derived key material. The 2 "hits" with pad<16 both
+produced plaintext that does not begin with handshake type `0x14`
+(Finished) — classic false positives from random pad bytes.
+
+The remaining theories, to pursue next session:
+
+1. The CBC-SHA256 cipher the firmware implements as `0x00ae` is not the
+   RFC-standard TLS_PSK_WITH_AES_128_CBC_SHA256 — some vendors reuse the
+   codepoint for a slightly different KDF/MAC layout. A side-by-side with
+   OpenSSL's `s_client -debug -msg` on a known PSK handshake would reveal
+   this immediately.
+2. The TUTK-wrapped DTLS might apply an extra scramble pass only on the
+   DTLS record body (not the first 16 outer bytes), so our 29-byte offset
+   for the IV might be off. We only verified Transcode on the outer 16;
+   a fresh look at `ReverseTransCodeBlob` versus `ReverseTransCodePartial`
+   semantics would be worth 10 minutes.
