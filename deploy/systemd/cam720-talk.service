@@ -1,0 +1,17 @@
+[Unit]
+Description=go2rtc (CAM720 fork) for two-way talk to the Jooan camera
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Provides ATHAN_HA_CAMERA_P2P_TOKEN; expanded inside the go2rtc config.
+EnvironmentFile=/etc/athan-hub/athan-hub.env
+ExecStart=/usr/local/bin/go2rtc-cam720 -c /etc/athan-hub/go2rtc-cam720.yaml
+Restart=on-failure
+RestartSec=5
+# Local talk service only; no public exposure.
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target
