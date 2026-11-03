@@ -190,6 +190,29 @@ What's left is either:
   `Athan-capture` SSID, open the CAM720 app, hit Live, and tail
   `journalctl -u dtls-mitm` for the exact IPCAM_START IOCtrl payload.
 
+### Android app IOCtrl sequence (from Jadx)
+
+Verified by reading `com/jooan/androidmysdk/live/bean/MYCameraBase.java`
+and `com/tutk/IOTC/v.java` in the decompiled APK:
+
+- Start video (per channel):
+  `TK_sendIOCtrlToChannel(ch, 511, SMsgAVIoctrlAVStream(ch, 0))` — the
+  payload is 8 bytes: 4 little-endian channel + 1 option byte + 3 zeros.
+  Matches what the fork sends. The guard `!isVideoOnConnect() && f`
+  means the app skips the IOCtrl if the camera auto-pushes frames on
+  connect.
+- Likely pre-queries the app also issues (not strictly required but
+  seen in the main init sequence):
+  `66338 GetStreamCtrlReq(channel)`, `810` (opaque 8-byte zero), then
+  `511`.
+- Start speaker (talk-back): `848 IPCAM_SPEAKERSTART`, then
+  `AVSendAudioData` on the main AV channel (not Wyze's reverse-DTLS
+  pattern).
+
+So the app's start code is confirmed as 511; our 511 payload is byte-identical.
+The remaining difference between fork and app must be at the TUTK envelope
+layer (framing) or the DTLS cipher — not the IOCtrl number or payload.
+
 ### Note on pion state reflection
 
 `(*Conn).ConnectionState()` returns a *clone* produced by
