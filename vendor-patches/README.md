@@ -88,3 +88,30 @@ on the Hub's isolated Wi-Fi (`Athan-capture`). Both `live.pcap` captures
   handshake bytes but the EMS-derived keys do not open the application
   records — the PRF implementation needs a cross-check against pion/dtls
   before plaintext can be read. That's the one remaining blocker.
+
+## Session-decryption cross-check
+
+The PRF implementations in `traces/decrypt_cam.py` and
+`traces/decrypt_ems.py` were verified against pion/dtls using the Go tool
+`cmd_prf_main.go`. For identical inputs
+(client_random, server_random, session_hash, PSK=SHA256(device_pwd)),
+Python and pion produce identical master secrets and key material. Yet
+decrypting the first client-sent app-data record (the Finished at epoch 1
+seq 0) with the derived `cek` yields a padding byte of 191/214/239 — clearly
+garbage — regardless of whether EMS or standard master-secret derivation is
+used. That means **the handshake extraction is correct and the PRF is
+correct, but either**:
+
+- the PSK the camera actually uses for AV sessions is _not_
+  `SHA256(device_pwd)` (even though our own go2rtc client's PSK callback
+  with that value makes pion/dtls succeed the handshake — pion verifies
+  Server Finished, so this would be surprising); or
+- the handshake extraction is still missing a message (we parsed CH, SH,
+  SHD, CKE; a ServerKeyExchange, if present, would change the session
+  hash and the master secret).
+
+`cmd_decrypt_main.go` is a plain Go CBC-SHA256 decoder for feeding one
+record and seeing exactly what AES produces, independent of pion.
+`cmd_decode_main.go` runs the raw Kalay Transcode on captured UDP
+payloads so each packet's TUTK envelope and inner DTLS record can be
+inspected.
