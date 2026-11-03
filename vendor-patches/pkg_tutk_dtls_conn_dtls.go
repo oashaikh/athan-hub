@@ -409,6 +409,67 @@ func (c *DTLSConn) WriteIOCtrlStd(ctrlType uint32, ctrlData []byte) error {
 	return err
 }
 
+// OpenSpeakerCAM720 opens the speaker channel using IOCtrl 848
+// (IOTYPE_USER_IPCAM_SPEAKERSTART). Must be called once before any
+// SendAudioCAM720. Payload is SMsgAVIoctrlAVStream(channel=0, option=0).
+func (c *DTLSConn) OpenSpeakerCAM720() error {
+	body := make([]byte, 8)
+	return c.WriteIOCtrlStd(848, body)
+}
+
+// SendAudioCAM720 sends one PCM/G.711 chunk to the camera's speaker using
+// the Session16 "SendFrameData" layout observed in the Android app:
+//   - 28-byte msgHhr
+//   - 24-byte cmd header (01 03 0b 00 || seq || mediaSize || 00 00 || 2800 ||
+//     dataSize || tsLE16 || 01 00 00 00)
+//   - payload (len = len(pcm))
+//   - "ODUA\x20\x00\x00\x00"
+//   - 16-byte frameInfo = parseFrameInfo(codecId, flags, 0, 0, tsMS)
+// codecID is the TUTK codec id (e.g. 0x8A for G.711 μ-law, 0x8B for G.711 A-law,
+// 0x8C for PCM 16-bit). flags byte = channelCfg | (srIdx<<2) | (dataBits<<1):
+//   mono=0, 8kHz srIdx=0, 16bit dataBits=1 → flags=0x02.
+//   16kHz srIdx=2 → flags=0x0A.
+func (c *DTLSConn) SendAudioCAM720(codecID uint16, flags byte, pcm []byte) error {
+	c.audioFrameNo++
+	n := uint16(len(pcm))
+	dataSize := uint16(len(pcm)) + 8 + 16 // payload + ODUA(8) + frameInfo(16)
+	total := 28 + 24 + int(dataSize)
+	b := make([]byte, total)
+
+	// 28-byte Session wrapper
+	copy(b, []byte{0x04, 0x02, 0x1d, 0x0a})
+	binary.LittleEndian.PutUint16(b[4:], uint16(total-16))
+	copy(b[8:], []byte{0x07, 0x04, 0x21, 0x00})
+	copy(b[12:14], c.sid[:2])
+	b[16] = 0x0c
+	copy(b[20:28], c.sid)
+
+	// 24-byte cmd header (frame-data variant)
+	cmd := b[28:]
+	copy(cmd, []byte{0x01, 0x03, 0x0b, 0x00})
+	c.audioSeq++
+	binary.LittleEndian.PutUint16(cmd[4:], uint16(c.audioSeq))
+	binary.LittleEndian.PutUint16(cmd[8:], n)
+	cmd[14] = 0x28
+	binary.LittleEndian.PutUint16(cmd[16:], dataSize)
+	binary.LittleEndian.PutUint16(cmd[18:], uint16(time.Now().UnixMilli()))
+	cmd[20] = 1
+
+	// Payload + trailer
+	data := cmd[24:]
+	copy(data, pcm)
+	copy(data[n:], []byte{'O', 'D', 'U', 'A', 0x20, 0x00, 0x00, 0x00})
+	fi := data[n+8:]
+	binary.LittleEndian.PutUint16(fi[0:], codecID)
+	fi[2] = flags
+	fi[3] = 0
+	fi[4] = 0
+	binary.LittleEndian.PutUint32(fi[12:], uint32(time.Now().UnixMilli()))
+
+	_, err := c.clientConn.Write(b)
+	return err
+}
+
 func (c *DTLSConn) WriteAndWait(req []byte, ok func(res []byte) bool) ([]byte, error) {
 	var t *time.Timer
 	t = time.AfterFunc(1, func() {
