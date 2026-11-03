@@ -144,3 +144,20 @@ The remaining theories, to pursue next session:
    for the IV might be off. We only verified Transcode on the outer 16;
    a fresh look at `ReverseTransCodeBlob` versus `ReverseTransCodePartial`
    semantics would be worth 10 minutes.
+
+### Partial transcode confirmed; cipher mystery remains
+
+Verified today that `ReverseTransCodeBlob` applies partial encryption:
+when `decoded[3] & 1 != 0` (which is our case — stage byte `0x0b`), only
+the first 16 bytes plus bytes 16–63 get transcoded, and bytes 64+ pass
+through untouched. For the client Finished record at packet offset 82 the
+IV lives at offset 95 (well past the transcoded zone), so our raw and
+decoded IV bytes are identical. Decryption still fails.
+
+Exhaustive search across every 16-byte window of key material from both
+EMS and standard master-secret derivations and both key-expansion seed
+orders found **zero** combinations whose plaintext starts with the
+expected Finished prefix `14 00 00 0c`. That rules out IV/key alignment
+bugs. The outstanding hypothesis — that `0x00ae` in this firmware uses
+a nonstandard KDF or MAC placement despite its RFC name — needs an
+OpenSSL `s_server`-vs-firmware comparison to settle definitively.
