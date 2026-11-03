@@ -93,6 +93,29 @@ repurposes the 848/849/850 block as speaker-mode / talk-start / talk-stop.
   on the talk-back path.
 - **frameInfo size** — 16 bytes (not 40).
 
+## The AVFrame "ODUA" trailer (firmware-confirmed)
+
+The TUTK frame builder `FUN_00627f84` writes the frame trailer as:
+
+```
+"ODUA" (0x4155444f, 4 bytes) | frameInfoLen uint32-LE (4) | frameInfo (frameInfoLen)
+```
+
+(`puVar6[0] = 0x4155444f; puVar6[1] = param_6; memcpy(puVar6+2, frameInfo, param_6)`.)
+
+go2rtc's `SendFrameData` hardcodes `"ODUA\x20\x00\x00\x00"` — a declared
+frameInfo length of **0x20 (32)**, which is the **video** frameInfo size.
+`avRecvAudioData` reads a **16-byte** frameInfo, so the **audio** trailer
+must declare **0x10 (16)**: `dataSize = n + 8 + 16`, marker
+`"ODUA\x10\x00\x00\x00"`, then 16 bytes of frameInfo
+(`codecID uint16 | flags byte | ... | timestamp uint32 @ +12`).
+
+Our `SendAudioCAM720` had copied the video's `0x20` length while writing
+only 16 bytes — a length/content mismatch the camera cannot parse. Now
+fixed to declare `0x10`. This, plus IOCtrl 849 and 16 kHz PCM, is the fully
+firmware-grounded configuration. It had never been tested as a whole (848
+vs 849, and 0x20 vs 0x10 trailer, were only ever varied one at a time).
+
 ## The one remaining unknown (needs the camera's live log)
 
 With IOCtrl fixed to 849 and 16 kHz raw PCM sent, there was still no audible
