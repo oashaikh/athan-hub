@@ -54,6 +54,13 @@ func main() {
 		c.SendAudioCAM720Mode(m)
 		fmt.Printf("### frameInfo mode = %s\n", m)
 	}
+	if os.Getenv("OPEN_CH1") == "1" {
+		fmt.Println(">> OpenAudioChannelCAM720(admin, device_pwd)")
+		if err := c.OpenAudioChannelCAM720("admin", os.Getenv("CAM_PASS")); err != nil {
+			fmt.Println("open ch1:", err); return
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
 	fmt.Printf(">> 848 OpenSpeakerCAM720WithChan(%d)\n", serverCh)
 	if err := c.OpenSpeakerCAM720WithChan(uint32(serverCh)); err != nil { fmt.Println("w848:", err); return }
 	time.Sleep(1500 * time.Millisecond)

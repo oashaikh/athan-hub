@@ -424,6 +424,44 @@ func (c *DTLSConn) RecvIOCtrlRaw(timeout time.Duration) (uint32, []byte, error) 
 	}
 }
 
+// OpenAudioChannelCAM720 opens TUTK channel 1 (two-way audio) by sending the
+// Session16 ClientStart message with device credentials, over the DTLS tunnel.
+// Equivalent to avServStartEx in the Jooan Android app's ThreadSendAudio
+// (jadx w.java). Must be called once after AVClientStart and before any
+// SendAudioCAM720 so the camera routes those frames to the speaker instead
+// of dropping them.
+func (c *DTLSConn) OpenAudioChannelCAM720(username, password string) error {
+	// Build the ClientStart message (598 bytes) exactly as Session16 does.
+	const size = 566 + 32
+	b := make([]byte, size)
+
+	// 28-byte Session wrapper
+	copy(b, []byte{0x04, 0x02, 0x1d, 0x0a})
+	binary.LittleEndian.PutUint16(b[4:], uint16(size-16))
+	copy(b[8:], []byte{0x07, 0x04, 0x21, 0x00})
+	copy(b[12:14], c.sid[:2])
+	b[14] = 1 // channel 1 (audio)
+	b[16] = 0x0c
+	copy(b[20:28], c.sid)
+
+	// 24-byte cmd header
+	cmd := b[28:]
+	copy(cmd, []byte{0x00, 0x00, 0x0b, 0x00})
+	binary.LittleEndian.PutUint16(cmd[16:], uint16(size-52))
+	cmd[18] = 1
+	binary.LittleEndian.PutUint32(cmd[20:], uint32(time.Now().UnixMilli()))
+
+	// data region: username (56 bytes) at offset 0, password at 56+256=312, trailer at 538
+	data := cmd[24:]
+	copy(data, []byte(username))
+	copy(data[56+256+1:], []byte(password))
+	// trailer at offset 538 (32 bytes): some version/caps fingerprint
+	copy(data[538:], []byte{0x01, 0, 0, 0, 0x04, 0, 0, 0, 0xfb, 0x07, 0x1f, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x03, 0, 0, 0, 0, 0, 0x01, 0, 0, 0})
+
+	_, err := c.clientConn.Write(b)
+	return err
+}
+
 // OpenSpeakerCAM720 opens the speaker channel using IOCtrl 848
 // (IOTYPE_USER_IPCAM_SPEAKERSTART). Must be called once before any
 // SendAudioCAM720. Payload is SMsgAVIoctrlAVStream(channel=serverCh, option=0).
