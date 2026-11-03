@@ -183,7 +183,22 @@ What's left is either:
   exact divergence; or
 - Reading the firmware's DTLS implementation. The TUTK libraries that
   Jadx shows are the Android apk's view — the camera-side binary is in
-  the vendor's own firmware blob.
+  the vendor's own firmware blob; or
+- Reading `cmd/mitm` output live. The DTLS proxy terminates on both
+  sides, so once the phone handshakes through it there is no decryption
+  to do — pion already has the plaintext. Point a phone at the
+  `Athan-capture` SSID, open the CAM720 app, hit Live, and tail
+  `journalctl -u dtls-mitm` for the exact IPCAM_START IOCtrl payload.
+
+### Note on pion state reflection
+
+`(*Conn).ConnectionState()` returns a *clone* produced by
+`State.serialize()` + `State.deserialize()`. The serialized form does
+**not** carry `preMasterSecret` or `extendedMasterSecret`, so reflecting
+those fields on the clone always reads zero. For verifying which
+master-secret derivation pion actually ran, add explicit prints inside
+`flight5handler.go` or use `cfg.writeKeyLog` — do not trust clone
+reflection.
 
 Both are bench work, not reach-further-tonight work. The protocol RE is
 otherwise complete: DTLS inside Session16-scramble, version `0x1d`,
