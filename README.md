@@ -72,6 +72,8 @@ ATHAN_HA_AUDIO_URL=https://example.com/athan.mp3
 
 Optional extras: `ATHAN_HA_VOLUME=60` sets the Echo to 60% for the athan and restores the previous volume afterwards, and `ATHAN_HA_AUDIO_URL_FAJR` (or `_DHUHR`, `_ASR`, `_MAGHRIB`, `_ISHA`) plays a different hosted athan for that prayer. Either setting can list several athans separated by commas, and one is picked at random each time. An athan longer than Alexa's 240-second limit can be split into parts joined with `+`, which play back to back. Do Not Disturb on the Echo is switched off for the athan and back on afterwards, because it otherwise silences the Echo without any error.
 
+Set `ATHAN_HA_ALERT_SERVICE` to a phone's notify service (for example `mobile_app_my_phone`) to be told when something will stop an athan. Ten minutes before each prayer the Hub checks that Home Assistant accepts its token and can see the Echo. It also sends an alert if the Echo refuses the athan or nothing plays at all. The services reload `athan-hub.env` by themselves when it changes, after any athan that is playing has finished.
+
 Set `ATHAN_HA_TV_ENTITY` to an LG webOS TV's media player (for example `media_player.lg_webos_tv_65un85006la`) and the setup script adds an automation that shows the prayer on screen and mutes the TV for the athan when it is on. Saying "Alexa, athan" to the Echo plays the athan straight away. For the LG TV app, see [tv/webos/README.md](tv/webos/README.md); `ATHAN_HA_TV_IP` lets the TV open Home Assistant without a login screen.
 
 When all of these are set, prayers play through Home Assistant. If Home Assistant or the Echo is unavailable for 90 seconds, Athan Hub falls back to Bluetooth when a speaker is paired. The installer keeps `ATHAN_HA_` lines on updates.

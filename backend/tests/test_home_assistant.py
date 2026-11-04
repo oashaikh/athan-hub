@@ -148,3 +148,19 @@ def test_play_asks_the_alexa_skill_when_configured(monkeypatch, settings) -> Non
         "media_content_id": "ask call to prayer to play the morning prayer",
         "media_content_type": "custom",
     })
+
+
+def test_check_raises_when_the_echo_is_unavailable(monkeypatch, settings) -> None:
+    _install(monkeypatch, _FakeHomeAssistant(echo_state="unavailable"))
+    with pytest.raises(home_assistant.EchoUnavailable):
+        home_assistant.check()
+
+
+def test_alert_notifies_the_phone_and_never_raises(monkeypatch, settings) -> None:
+    settings.ha_alert_service = "mobile_app_phone"
+    fake = _install(monkeypatch, _FakeHomeAssistant())
+    home_assistant.alert("Isha did not play")
+    assert fake.calls == [("/api/services/notify/mobile_app_phone", {"title": "Athan Hub", "message": "Isha did not play"})]
+
+    fake.failures = 1
+    home_assistant.alert("ignored")  # a failing alert must not break playback handling

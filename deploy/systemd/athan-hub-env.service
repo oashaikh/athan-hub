@@ -1,0 +1,10 @@
+[Unit]
+Description=Restart Athan Hub after its settings change
+
+[Service]
+Type=oneshot
+TimeoutStartSec=15min
+# The services read athan-hub.env only at start, so a new Home Assistant token
+# would otherwise be ignored until the next reboot. Waits for an athan that is
+# playing, and leaves restarts to the updater while it holds its lock.
+ExecStart=/bin/sh -c 'while [ -e /run/athan-hub/athan-active.json ]; do sleep 5; done; /usr/bin/flock -n /run/lock/athan-hub-update.lock /bin/systemctl try-restart athan-hub-api.service athan-hub-scheduler.service || true'

@@ -43,6 +43,8 @@ class AppSettings(BaseSettings):
     # "skill" streams full-length athans through the private Alexa skill in alexa/;
     # anything else uses the SSML <audio> clip, which Amazon caps at 240 seconds.
     ha_playback: str = os.environ.get("ATHAN_HA_PLAYBACK", "clip")
+    # Notify service for failure alerts, e.g. "mobile_app_my_phone".
+    ha_alert_service: str = os.environ.get("ATHAN_HA_ALERT_SERVICE", "")
 
     def ensure_directories(self) -> None:
         for path in [self.data_dir, self.log_dir, self.upload_dir, self.audio_dir, self.background_dir, self.quran_cache_dir, self.db_path.parent]:
