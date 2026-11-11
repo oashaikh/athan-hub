@@ -79,6 +79,25 @@ def _service(domain: str, service: str, data: dict) -> None:
     _call("POST", f"/api/services/{domain}/{service}", data)
 
 
+def check() -> None:
+    """Raise if Home Assistant would refuse a play() now: a rejected token, or the Echo unavailable."""
+    media_player = f"media_player.{_echo_slug()}"
+    echo = _state(media_player)
+    if echo is None or echo.get("state") == "unavailable":
+        raise EchoUnavailable(f"{media_player} is unavailable in Home Assistant")
+
+
+def alert(message: str) -> None:
+    """Best-effort push to the household's phone through ATHAN_HA_ALERT_SERVICE."""
+    service = get_settings().ha_alert_service
+    if not service:
+        return
+    try:
+        _service("notify", service, {"title": "Athan Hub", "message": message})
+    except (urllib.error.URLError, OSError):
+        pass
+
+
 def play(
     duration_seconds: float,
     prayer: Optional[str] = None,

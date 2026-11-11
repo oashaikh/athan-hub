@@ -42,6 +42,8 @@ fetch_card card-mod-4.2.1.js https://raw.githubusercontent.com/thomasloven/lovel
 fetch_card layout-card-2.4.7.js https://raw.githubusercontent.com/thomasloven/lovelace-layout-card/v2.4.7/layout-card.js
 fetch_card mushroom-5.2.3.js https://github.com/piitaya/lovelace-mushroom/releases/download/v5.2.3/mushroom.js
 install -m 0644 "$SCRIPT_DIR/homeassistant/themes/athan_glass.yaml" "$CONFIG_DIR/themes/athan_glass.yaml"
+install -m 0644 "$SCRIPT_DIR/homeassistant/www/athan-tv-nav.js" "$CONFIG_DIR/www/athan-tv-nav.js"
+install -m 0644 "$SCRIPT_DIR/homeassistant/www/athan-list-card.js" "$CONFIG_DIR/www/athan-list-card.js"
 
 if [[ ! -f "$CONFIG_DIR/custom_components/alexa_media/manifest.json" ]]; then
   log "Installing Alexa Media Player"
@@ -51,6 +53,17 @@ if [[ ! -f "$CONFIG_DIR/custom_components/alexa_media/manifest.json" ]]; then
   python3 -c 'import sys, zipfile; zipfile.ZipFile(sys.argv[1]).extractall(sys.argv[2])' "$tmp/amp.zip" "$CONFIG_DIR/custom_components/alexa_media"
   rm -rf "$tmp"
 fi
+
+# WebRTC Camera gives the dashboard's camera card live video, sound and pan/tilt arrows.
+# Its go2rtc only listens on this machine, so camera streams are not reshared on the network.
+if [[ ! -f "$CONFIG_DIR/custom_components/webrtc/manifest.json" ]]; then
+  log "Installing WebRTC Camera"
+  tmp="$(mktemp -d)"
+  curl -fsSL https://github.com/AlexxIT/WebRTC/archive/refs/tags/v3.6.1.tar.gz | tar xz -C "$tmp"
+  cp -r "$tmp/WebRTC-3.6.1/custom_components/webrtc" "$CONFIG_DIR/custom_components/"
+  rm -rf "$tmp"
+fi
+[[ -f "$CONFIG_DIR/go2rtc.yaml" ]] || printf 'api:\n  listen: 127.0.0.1:1984\nrtsp:\n  listen: 127.0.0.1:8554\n' > "$CONFIG_DIR/go2rtc.yaml"
 
 # Packages hold the Athan Hub additions so configuration.yaml stays the default.
 if [[ -f "$CONFIG_DIR/configuration.yaml" ]] && ! grep -q '^  packages:' "$CONFIG_DIR/configuration.yaml"; then
@@ -237,24 +250,157 @@ audio_url="${audio_url%%+*}"  # and only its first part
       printf '          data:\n'
       printf '            type: tts\n'
     fi
+    # Type a command on the dashboard and the Echo carries it out as if it had been said.
+    printf '  ask_alexa:\n'
+    printf '    alias: Send to Alexa\n'
+    printf '    icon: mdi:send\n'
+    printf '    sequence:\n'
+    printf "      - condition: template\n"
+    printf "        value_template: \"{{ states('input_text.alexa_command') | trim | length > 0 }}\"\n"
+    printf '      - action: media_player.play_media\n'
+    printf '        target:\n'
+    printf '          entity_id: media_player.%s\n' "${notify_service#alexa_media_}"
+    printf '        data:\n'
+    printf "          media_content_id: \"{{ states('input_text.alexa_command') }}\"\n"
+    printf '          media_content_type: custom\n'
+    printf '      - action: input_text.set_value\n'
+    printf '        target:\n'
+    printf '          entity_id: input_text.alexa_command\n'
+    printf '        data:\n'
+    printf '          value: ""\n'
+    printf 'input_text:\n'
+    printf '  alexa_command:\n'
+    printf '    name: Ask Alexa\n'
+    printf '    icon: mdi:message-text-outline\n'
+    printf '    max: 255\n'
   fi
+  if [[ -n "$tv_entity" ]]; then
+    # One-tap TV controls for the iPhone Control Centre, widgets and the Apple Watch,
+    # which list scripts rather than dashboard buttons.
+    printf 'script tv_remote:\n'
+    tv_script() {
+      printf '  %s:\n    alias: %s\n    icon: %s\n    sequence:\n      - action: %s\n        target:\n          entity_id: %s\n' "$1" "$2" "$3" "$4" "$tv_entity"
+      [[ -z "${5:-}" ]] || printf '        data:\n          %s\n' "$5"
+    }
+    tv_script tv_power "TV power" mdi:power media_player.toggle
+    tv_script tv_volume_up "TV volume up" mdi:volume-plus media_player.volume_up
+    tv_script tv_volume_down "TV volume down" mdi:volume-minus media_player.volume_down
+    tv_script tv_mute "TV mute" mdi:volume-mute media_player.volume_mute "is_volume_muted: \"{{ not state_attr('$tv_entity', 'is_volume_muted') }}\""
+    tv_script tv_play_pause "TV play/pause" mdi:play-pause media_player.media_play_pause
+  fi
+  tv_mac="$(ha_value ATHAN_HA_TV_MAC)"
+  if [[ -n "$tv_entity" && -n "$tv_mac" ]]; then
+    # webOS TVs switch on over the network with a Wake-on-LAN packet; the webostv
+    # integration asks for it through this trigger.
+    printf 'wake_on_lan:\n'
+    printf 'automation tv_power:\n'
+    printf '  - id: athan_hub_tv_turn_on\n'
+    printf '    alias: Turn on the TV\n'
+    printf '    triggers:\n'
+    printf '      - trigger: webostv.turn_on\n'
+    printf '        entity_id: %s\n' "$tv_entity"
+    printf '    actions:\n'
+    printf '      - action: wake_on_lan.send_magic_packet\n'
+    printf '        data:\n'
+    printf '          mac: %s\n' "$tv_mac"
+  fi
+  # Put a reset CAM720 camera on Wi-Fi from the dashboard: the request file is picked
+  # up on the host by camera-wifi.path, which uses this machine's Wi-Fi adapter.
+  printf 'shell_command:\n'
+  printf '  camera_wifi_request: "/config/athan/camera-wifi-request {{ ssid }} {{ password }}"\n'
+  printf 'script camera:\n'
+  printf '  camera_wifi_setup:\n'
+  printf '    alias: Camera Wi-Fi setup\n'
+  printf '    icon: mdi:cctv\n'
+  printf '    description: Reset the camera until it beeps, then run this with your Wi-Fi details.\n'
+  printf '    fields:\n'
+  printf '      ssid:\n'
+  printf '        name: Wi-Fi name\n'
+  printf '        required: true\n'
+  printf '        selector:\n'
+  printf '          text:\n'
+  printf '      password:\n'
+  printf '        name: Wi-Fi password\n'
+  printf '        required: true\n'
+  printf '        selector:\n'
+  printf '          text:\n'
+  printf '            type: password\n'
+  printf '    sequence:\n'
+  printf '      - action: shell_command.camera_wifi_request\n'
+  printf '        data:\n'
+  printf '          ssid: "{{ ssid }}"\n'
+  printf '          password: "{{ password }}"\n'
 } > "$CONFIG_DIR/packages/athan_hub.yaml"
+# Pan and tilt the CAM720 camera. Its ONVIF service only understands unprefixed SOAP,
+# which Home Assistant's ONVIF integration does not send, so send it directly.
+camera_ip="$(ha_value ATHAN_HA_CAMERA_IP)"
+if [[ -n "$camera_ip" ]]; then
+  {
+    printf 'rest_command:\n'
+    printf '  camera_ptz:\n'
+    printf '    url: http://%s:8899/onvif/PTZ\n' "$camera_ip"
+    printf '    method: post\n'
+    printf '    content_type: application/soap+xml\n'
+    printf '    payload: >-\n'
+    printf '      <s:Envelope xmlns:s="http://www.w3.org/2003/05/soap-envelope" xmlns:tt="http://www.onvif.org/ver10/schema"><s:Body>{{ body }}</s:Body></s:Envelope>\n'
+    printf 'script camera_ptz:\n'
+    printf '  camera_move:\n'
+    printf '    alias: Move the camera\n'
+    printf '    icon: mdi:pan\n'
+    printf '    mode: restart\n'
+    printf '    fields:\n'
+    printf '      pan:\n'
+    printf '        selector:\n'
+    printf '          number: {min: -1, max: 1, step: 0.1}\n'
+    printf '      tilt:\n'
+    printf '        selector:\n'
+    printf '          number: {min: -1, max: 1, step: 0.1}\n'
+    printf '    sequence:\n'
+    printf '      - action: rest_command.camera_ptz\n'
+    printf '        data:\n'
+    printf '          body: >-\n'
+    printf '            <ContinuousMove xmlns="http://www.onvif.org/ver20/ptz/wsdl"><ProfileToken>profile_0</ProfileToken><Velocity><tt:PanTilt x="{{ pan | default(0) }}" y="{{ tilt | default(0) }}"/></Velocity></ContinuousMove>\n'
+    printf '      - delay: 0.6\n'
+    printf '      - action: rest_command.camera_ptz\n'
+    printf '        data:\n'
+    printf '          body: <Stop xmlns="http://www.onvif.org/ver20/ptz/wsdl"><ProfileToken>profile_0</ProfileToken><PanTilt>true</PanTilt></Stop>\n'
+    # The flip buttons on each camera card turn the picture (and its PTZ arrows)
+    # for every viewer, to match how the camera is mounted.
+    printf 'input_boolean:\n'
+    for lens in 1 2; do
+      printf '  camera_flip_lens_%s:\n    name: Mirror camera lens %s\n    icon: mdi:flip-horizontal\n' "$lens" "$lens"
+      printf '  camera_flip_v_lens_%s:\n    name: Flip camera lens %s upside down\n    icon: mdi:flip-vertical\n' "$lens" "$lens"
+    done
+  } > "$CONFIG_DIR/packages/athan_hub_camera.yaml"
+else
+  rm -f "$CONFIG_DIR/packages/athan_hub_camera.yaml"
+fi
+install -d -m 0700 "$CONFIG_DIR/athan"
+cat > "$CONFIG_DIR/athan/camera-wifi-request" <<'SH'
+#!/bin/sh
+umask 077
+printf '%s\n%s\n' "$1" "$2" > /config/athan/camera-wifi.tmp && mv /config/athan/camera-wifi.tmp /config/athan/camera-wifi.request
+SH
+chmod 0700 "$CONFIG_DIR/athan/camera-wifi-request"
 
 # --package-only: athan-audio-sync changed the athan URLs; reload the package's
 # scripts and automations without restarting Home Assistant.
 if [[ "${1:-}" == "--package-only" ]]; then
   token="$(ha_value ATHAN_HA_TOKEN)"
-  for domain in script automation; do
+  for domain in script automation input_text shell_command rest_command; do
     curl -fsS -o /dev/null -H "Authorization: Bearer $token" -X POST "http://127.0.0.1:8123/api/services/$domain/reload" || true
   done
   exit 0
 fi
 
-# Home Assistant moved http settings from YAML into .storage/http; once migrated the
-# YAML block is ignored, so set the proxy trust there too (with Home Assistant stopped).
-if [[ -f "$CONFIG_DIR/.storage/http" ]]; then
-  docker stop homeassistant >/dev/null 2>&1 || true
-  python3 - "$CONFIG_DIR/.storage/http" <<'PY'
+# --dashboard-only: rebuild the dashboards (after signing in to Ring, say)
+# without restarting Home Assistant.
+if [[ "${1:-}" != "--dashboard-only" ]]; then
+  # Home Assistant moved http settings from YAML into .storage/http; once migrated the
+  # YAML block is ignored, so set the proxy trust there too (with Home Assistant stopped).
+  if [[ -f "$CONFIG_DIR/.storage/http" ]]; then
+    docker stop homeassistant >/dev/null 2>&1 || true
+    python3 - "$CONFIG_DIR/.storage/http" <<'PY'
 import json, sys
 path = sys.argv[1]
 with open(path) as handle:
@@ -263,22 +409,23 @@ store["data"]["stable"].update({"use_x_forwarded_for": True, "trusted_proxies": 
 with open(path, "w") as handle:
     json.dump(store, handle, indent=2)
 PY
-fi
+  fi
 
-if ! docker inspect homeassistant >/dev/null 2>&1; then
-  log "Starting Home Assistant"
-  docker pull -q "$IMAGE"
-  docker run -d --name homeassistant --restart=unless-stopped --privileged --network=host \
-    -e TZ="$(timedatectl show -p Timezone --value 2>/dev/null || echo Europe/London)" \
-    -v "$CONFIG_DIR:/config" -v /run/dbus:/run/dbus:ro "$IMAGE" >/dev/null
-else
-  docker restart homeassistant >/dev/null
-fi
+  if ! docker inspect homeassistant >/dev/null 2>&1; then
+    log "Starting Home Assistant"
+    docker pull -q "$IMAGE"
+    docker run -d --name homeassistant --restart=unless-stopped --privileged --network=host \
+      -e TZ="$(timedatectl show -p Timezone --value 2>/dev/null || echo Europe/London)" \
+      -v "$CONFIG_DIR:/config" -v /run/dbus:/run/dbus:ro "$IMAGE" >/dev/null
+  else
+    docker restart homeassistant >/dev/null
+  fi
 
-for _ in $(seq 1 60); do
-  curl -fsS -o /dev/null http://127.0.0.1:8123/ && break
-  sleep 5
-done
+  for _ in $(seq 1 60); do
+    curl -fsS -o /dev/null http://127.0.0.1:8123/ && break
+    sleep 5
+  done
+fi
 
 token="$(ha_value ATHAN_HA_TOKEN)"
 if [[ -n "$token" ]]; then
@@ -309,6 +456,8 @@ async def main():
         wanted = {
             "/local/community/layout-card-2.4.7.js": "module",
             "/local/community/mushroom-5.2.3.js": "module",
+            "/local/athan-tv-nav.js?v=1": "module",
+            "/local/athan-list-card.js?v=1": "module",
             "https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;700&display=swap": "css",
         }
         have = {r["url"] for r in (await call({"type": "lovelace/resources"}))["result"]}
@@ -320,9 +469,63 @@ async def main():
                     "service_data": {"name": "Athan Glass", "mode": "light"}})
         await call({"type": "call_service", "domain": "frontend", "service": "set_theme",
                     "service_data": {"name": "Athan Glass", "mode": "dark"}})
+        # The Lists view's family lists (the Shopping list is Home Assistant's own).
+        # Each list's entity id comes from its name; reruns abort as already configured.
+        headers = {"Authorization": "Bearer " + os.environ["T"]}
+        flow_url = "http://127.0.0.1:8123/api/config/config_entries/flow"
+        for name in ["To-do", "Chores", "Packing"]:
+            async with session.post(flow_url, json={"handler": "local_todo"}, headers=headers) as reply:
+                flow = await reply.json()
+            if flow.get("type") == "form":
+                async with session.post(f"{flow_url}/{flow['flow_id']}", json={"todo_list_name": name}, headers=headers) as reply:
+                    await reply.read()
+
+        home = json.load(open("/tmp/home-dashboard.json"))
+        # Ring doorbells and cameras join the Cameras view once the Ring integration is
+        # signed in: live video (with hold-to-talk when go2rtc has a Ring stream of the
+        # same name, see docs/INSTALL.md) and every Ring control underneath.
+        entities = (await call({"type": "config/entity_registry/list"}))["result"]
+        ring = [e for e in entities if e["platform"] == "ring" and not e["disabled_by"] and not e.get("hidden_by")]
+        cams = [e for e in ring if e["entity_id"].startswith("camera.")]
+        cams = [e for e in cams if "live_view" in (e.get("translation_key") or e["entity_id"])] or cams
+        try:
+            async with session.get("http://127.0.0.1:1984/api/streams") as reply:
+                go2rtc_streams = set(await reply.json())
+        except Exception:
+            go2rtc_streams = set()
+
+        def control(e):
+            domain = e["entity_id"].split(".")[0]
+            tile = {"type": "tile", "entity": e["entity_id"]}
+            if domain == "number":
+                tile["features"] = [{"type": "numeric-input", "style": "slider"}]
+                tile["features_position"] = "inline"
+            elif domain == "siren":
+                tile["tap_action"] = {"action": "more-info"}  # no siren from a stray tap
+                tile["icon_tap_action"] = {"action": "more-info"}
+            elif domain in ("switch", "light"):
+                tile["tap_action"] = {"action": "toggle"}
+            return tile
+
+        controls = [control(e) for e in ring if not e["entity_id"].startswith("camera.")
+                    and (e.get("entity_category") != "diagnostic" or e["entity_id"].endswith("_battery"))]
+        ring_cards = []
+        for cam in cams:
+            slug = cam["entity_id"].split(".", 1)[1].removesuffix("_live_view")
+            if slug in go2rtc_streams:
+                video = {"type": "custom:cam720-talk-card", "stream": slug, "title": "Hold to talk",
+                         "ready_delay": 0, "flip": False}
+            else:
+                video = {"type": "picture-entity", "entity": cam["entity_id"], "camera_view": "live", "show_state": False}
+            ring_cards.append({"type": "vertical-stack", "cards": [video] + (
+                [{"type": "grid", "columns": 1, "square": False, "cards": controls}] if controls and cam is cams[0] else [])})
+        for view in home["views"]:
+            if view["path"] == "cameras":
+                view["cards"] += ring_cards
+
         existing = {d["url_path"] for d in (await call({"type": "lovelace/dashboards/list"}))["result"]}
         dashboards = {
-            "home-dashboard": ("Home", "mdi:home-variant", json.load(open("/tmp/home-dashboard.json"))),
+            "home-dashboard": ("Home", "mdi:home-variant", home),
             "athan-hub": ("Athan Hub", "mdi:mosque", {"views": [{
                 "title": "Athan Hub", "path": "athan-hub", "type": "panel",
                 "cards": [{"type": "iframe", "url": os.environ["URL"], "aspect_ratio": "100%"}]}]}),

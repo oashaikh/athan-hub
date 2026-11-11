@@ -72,6 +72,8 @@ ATHAN_HA_AUDIO_URL=https://example.com/athan.mp3
 
 Optional extras: `ATHAN_HA_VOLUME=60` sets the Echo to 60% for the athan and restores the previous volume afterwards, and `ATHAN_HA_AUDIO_URL_FAJR` (or `_DHUHR`, `_ASR`, `_MAGHRIB`, `_ISHA`) plays a different hosted athan for that prayer. Either setting can list several athans separated by commas, and one is picked at random each time. An athan longer than Alexa's 240-second limit can be split into parts joined with `+`, which play back to back. Do Not Disturb on the Echo is switched off for the athan and back on afterwards, because it otherwise silences the Echo without any error.
 
+Set `ATHAN_HA_ALERT_SERVICE` to a phone's notify service (for example `mobile_app_my_phone`) to be told when something will stop an athan. Ten minutes before each prayer the Hub checks that Home Assistant accepts its token and can see the Echo. It also sends an alert if the Echo refuses the athan or nothing plays at all. The services reload `athan-hub.env` by themselves when it changes, after any athan that is playing has finished.
+
 Set `ATHAN_HA_TV_ENTITY` to an LG webOS TV's media player (for example `media_player.lg_webos_tv_65un85006la`) and the setup script adds an automation that shows the prayer on screen and mutes the TV for the athan when it is on. Saying "Alexa, athan" to the Echo plays the athan straight away. For the LG TV app, see [tv/webos/README.md](tv/webos/README.md); `ATHAN_HA_TV_IP` lets the TV open Home Assistant without a login screen.
 
 When all of these are set, prayers play through Home Assistant. If Home Assistant or the Echo is unavailable for 90 seconds, Athan Hub falls back to Bluetooth when a speaker is paired. The installer keeps `ATHAN_HA_` lines on updates.
@@ -79,6 +81,22 @@ When all of these are set, prayers play through Home Assistant. If Home Assistan
 Add `ATHAN_HA_FRONT_DOOR=1` to make `http://athan.local` open Home Assistant. The Athan Hub dashboard then moves to `http://athan.local:8080`, and Home Assistant shows it as a sidebar page. The change applies the next time the installer or updater runs.
 
 `sudo bash /opt/athan-hub/deploy/setup-home-assistant.sh` installs Home Assistant in Docker with Alexa Media Player. Once the lines above are set, rerunning it adds next-prayer sensors, a "Play athan on the Echo" script and an Athan Hub sidebar page to Home Assistant. See [docs/ROCK4SE-RECOVERY.md](docs/ROCK4SE-RECOVERY.md) for a full rebuild from a blank SD card.
+
+`sudo bash /opt/athan-hub/deploy/setup-pihole.sh` adds Pi-hole, a network-wide DNS ad blocker, in Docker and connects it to Home Assistant. Its admin page is on port 8081, and the password is in `/var/lib/pihole/api-password`. It blocks ads once your router hands out this machine's address as the DNS server.
+
+To keep a device off the internet entirely (for example a camera that should only stream to Home Assistant), list its MAC or IP addresses in `ATHAN_PIHOLE_OFFLINE_CLIENTS=` (comma separated) in `/etc/athan-hub/athan-hub.env` and rerun the script. Pi-hole then answers none of its lookups. A device that contacts servers by IP address gets past this, so block it in the router as well for a complete cut-off.
+
+A CAM720 (Jooan) camera can be put back on Wi-Fi after a reset without the CAM720 app: run the **Camera Wi-Fi setup** script in Home Assistant (button on the TV page) with the Wi-Fi name and password, or `sudo camera-wifi "<Wi-Fi name>"`. It joins the camera's `JA-...` setup hotspot with this machine's Wi-Fi adapter and sends it the Wi-Fi details, the same request the app makes.
+
+The TV page's camera card uses WebRTC Camera, which the installer copies into Home Assistant; add it once under Settings > Devices & services > Add integration > WebRTC Camera. The camera's second lens is `rtsp://<camera>:554/live/ch01_0` (add it as another Generic Camera).
+
+Two-way talk goes over the camera's ThroughTek Kalay DTLS channel. The sign-in key, `device_pwd`, is held in Jooan's cloud and reaches Home Assistant through a one-time extraction with a Windows CAM720 install and a trusted mitmproxy run from the Hub. The procedure, the protocol notes and the open research questions are in [docs/CAM720.md](docs/CAM720.md). Once extracted, the token goes in `/etc/athan-hub/athan-hub.env` as `ATHAN_HA_CAMERA_P2P_TOKEN=` and the camera can be blocked from the internet at the router.
+
+The **Lists** page holds the family's Shopping, To-do, Chores and Packing lists. Items on To-do, Chores and Packing can be assigned to a person in Home Assistant (stored as an `@Name` first line in the item's notes) and are grouped by person; lists and groups fold away with a tap. Swipe an item left to delete it, or tap the select button to delete several or all; each delete can be undone for six seconds.
+
+Ring doorbells and cameras appear on the Cameras page after the Ring integration is signed in and `setup-home-assistant.sh --dashboard-only` is run, with every Ring control (motion detection, chime, volumes, siren) under the video. For hold-to-talk, go2rtc needs its own Ring sign-in (sharing Home Assistant's token risks signing it out). Ring now refuses go2rtc's built-in Ring login page with `406 Not Acceptable`, so run `python3 /opt/athan-hub/deploy/ring-login.py` on the Hub instead: it signs in the way the Ring app does, asks for the 2FA code, and adds each Ring camera to go2rtc under its name (`front_door` for Front Door). Rerun `--dashboard-only` and the card gains a Talk button.
+
+For access away from home, install Tailscale (free for personal use) and sign in: `curl -fsSL https://tailscale.com/install.sh | sh`, then `sudo tailscale up --accept-dns=false --hostname=athan`. `--accept-dns=false` keeps the machine on its own DNS, so Pi-hole is unaffected. Home Assistant is then reachable at `http://athan` from any device signed in to the same Tailscale account. Tailscale SSH is not needed and stays off.
 
 ### Uploading athans
 

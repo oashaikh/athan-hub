@@ -1,0 +1,8 @@
+[Unit]
+Description=Watch Athan Hub settings so the services pick up changes
+
+[Path]
+PathChanged=/etc/athan-hub/athan-hub.env
+
+[Install]
+WantedBy=multi-user.target

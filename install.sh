@@ -341,6 +341,11 @@ install -m 0644 "$INSTALL_ROOT/deploy/systemd/athan-hub-update.timer" /etc/syste
 install -m 0755 "$INSTALL_ROOT/deploy/athan-audio-sync.py" /usr/local/bin/athan-audio-sync
 install -m 0644 "$INSTALL_ROOT/deploy/systemd/athan-audio-sync.service" /etc/systemd/system/athan-audio-sync.service
 install -m 0644 "$INSTALL_ROOT/deploy/systemd/athan-audio-sync.path" /etc/systemd/system/athan-audio-sync.path
+install -m 0755 "$INSTALL_ROOT/deploy/camera-wifi.py" /usr/local/bin/camera-wifi
+install -m 0644 "$INSTALL_ROOT/deploy/systemd/camera-wifi.service" /etc/systemd/system/camera-wifi.service
+install -m 0644 "$INSTALL_ROOT/deploy/systemd/camera-wifi.path" /etc/systemd/system/camera-wifi.path
+install -m 0644 "$INSTALL_ROOT/deploy/systemd/athan-hub-env.service" /etc/systemd/system/athan-hub-env.service
+install -m 0644 "$INSTALL_ROOT/deploy/systemd/athan-hub-env.path" /etc/systemd/system/athan-hub-env.path
 if [[ ! -e "$CONFIG_ROOT/updater.env" ]]; then
   cat > "$CONFIG_ROOT/updater.env" <<EOF
 ATHAN_UPDATE_REPOSITORY=https://github.com/${REPOSITORY}.git
@@ -373,7 +378,7 @@ if command -v ufw >/dev/null && ufw status | grep -q '^Status: active'; then
 fi
 
 systemctl daemon-reload
-systemctl enable --now bluetooth.service avahi-daemon.service nginx.service athan-hub-api.service athan-hub-scheduler.service athan-hub-update.timer athan-audio-sync.path
+systemctl enable --now bluetooth.service avahi-daemon.service nginx.service athan-hub-api.service athan-hub-scheduler.service athan-hub-update.timer athan-audio-sync.path camera-wifi.path athan-hub-env.path
 systemctl restart athan-hub-api.service athan-hub-scheduler.service nginx.service
 
 log "Waiting for the application health check"

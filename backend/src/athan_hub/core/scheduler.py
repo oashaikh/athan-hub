@@ -15,6 +15,10 @@ from ..services import audio_service, audit_service, bluetooth_service, timetabl
 
 logger = logging.getLogger(__name__)
 _prepared_occurrences: set[tuple[str, str, str]] = set()
+_checked_occurrences: set[tuple[str, str, str]] = set()
+# How long before a prayer to confirm Home Assistant will accept it, so a failure
+# reaches the phone while there is still time to fix it.
+PREFLIGHT_SECONDS = 600
 
 
 def _occurrence_key(date_str: str, prayer: str, event_time) -> tuple[str, str, str]:
@@ -57,7 +61,21 @@ def tick() -> float:
         )
         active_keys = {_occurrence_key(*event) for event in events}
         _prepared_occurrences.intersection_update(active_keys)
+        _checked_occurrences.intersection_update(active_keys)
         use_ha = home_assistant.enabled()
+
+        if use_ha:
+            for date_str, prayer, event_time in events:
+                key = _occurrence_key(date_str, prayer, event_time)
+                if not 0 < (event_time - now).total_seconds() <= PREFLIGHT_SECONDS or key in _checked_occurrences:
+                    continue
+                _checked_occurrences.add(key)
+                try:
+                    home_assistant.check()
+                except Exception as exc:
+                    logger.error("Pre-prayer check failed for %s: %s", prayer, exc)
+                    audit_service.add_entry(db, "ERROR", f"Pre-prayer check failed for {prayer}", {"error": str(exc)})
+                    home_assistant.alert(f"The {prayer} athan at {key[2]} may not play: {exc}")
 
         if takeover_lead > 0 and not use_ha:
             for date_str, prayer, event_time in events:
@@ -117,6 +135,7 @@ def tick() -> float:
                             # Home Assistant or the Echo is down; Bluetooth is the only other path.
                             logger.warning("Home Assistant playback failed, falling back to Bluetooth: %s", exc)
                             audit_service.add_entry(db, "WARNING", f"Home Assistant playback failed for {prayer}", {"error": str(exc)})
+                            home_assistant.alert(f"The Echo did not take the {prayer} athan ({exc}); trying the Bluetooth speaker.")
                             result = play_once(
                                 mac,
                                 Path(profile.file_path),
@@ -141,6 +160,8 @@ def tick() -> float:
             except Exception as exc:
                 logger.exception("Playback failed")
                 audit_service.add_entry(db, "ERROR", f"Playback failed for {prayer}", {"error": str(exc)})
+                if use_ha:
+                    home_assistant.alert(f"The {prayer} athan at {hhmm} did not play: {exc}")
         return _next_tick_delay(events, now, takeover_lead)
 
 

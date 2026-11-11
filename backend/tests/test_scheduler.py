@@ -140,3 +140,38 @@ def test_tick_falls_back_to_bluetooth_when_home_assistant_fails(monkeypatch) -> 
     scheduler.tick()
 
     assert len(plays) == 1
+
+
+def test_tick_checks_home_assistant_before_the_prayer_and_alerts_once(monkeypatch) -> None:
+    event_time = dt.datetime(2026, 8, 29, 18, 0, tzinfo=dt.timezone.utc)
+    _configure_tick(monkeypatch, [event_time - dt.timedelta(minutes=5)] * 4, event_time)
+    scheduler._checked_occurrences.clear()
+    monkeypatch.setattr(scheduler.home_assistant, "enabled", lambda: True)
+
+    def rejected():
+        raise RuntimeError("HTTP Error 401: Unauthorized")
+
+    monkeypatch.setattr(scheduler.home_assistant, "check", rejected)
+    alerts: list[str] = []
+    monkeypatch.setattr(scheduler.home_assistant, "alert", alerts.append)
+
+    scheduler.tick()
+    scheduler.tick()
+
+    assert len(alerts) == 1
+    assert "asr" in alerts[0] and "401" in alerts[0]
+
+
+def test_tick_alerts_when_no_output_plays(monkeypatch) -> None:
+    event_time = dt.datetime(2026, 8, 29, 18, 0, tzinfo=dt.timezone.utc)
+    _configure_tick(monkeypatch, [event_time + dt.timedelta(seconds=1)] * 3, event_time)
+    monkeypatch.setattr(scheduler.home_assistant, "enabled", lambda: True)
+    monkeypatch.setattr(scheduler.home_assistant, "play", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("401")))
+    monkeypatch.setattr(scheduler, "play_once", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("speaker off")))
+    alerts: list[str] = []
+    monkeypatch.setattr(scheduler.home_assistant, "alert", alerts.append)
+
+    scheduler.tick()
+
+    assert len(alerts) == 2
+    assert "did not play" in alerts[1] and "speaker off" in alerts[1]
