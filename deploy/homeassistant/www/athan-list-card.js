@@ -8,6 +8,8 @@
 // so it survives in Home Assistant itself and shows in its own to-do panel.
 // Lists that cannot hold descriptions (the Shopping list) are not assignable.
 //
+// No optional chaining or ??: the LG TV's browser (Chromium 68) cannot parse them.
+//
 //   type: custom:athan-list-card
 //   entity: todo.to_do
 //   title: To-do
@@ -66,7 +68,7 @@ h1 { font-size: 40px; font-weight: 300; letter-spacing: -0.02em; line-height: 1.
 
 .rows { list-style: none; margin: 0; padding: 0 0 4px; }
 .item { position: relative; overflow: hidden; }
-.bin { position: absolute; inset: 0; display: flex; align-items: center; justify-content: flex-end; padding-right: 24px; background: #e5484d; color: #fff; opacity: 0; }
+.bin { position: absolute; top: 0; right: 0; bottom: 0; left: 0; display: flex; align-items: center; justify-content: flex-end; padding-right: 24px; background: #e5484d; color: #fff; opacity: 0; }
 .slide { position: relative; display: flex; align-items: flex-start; gap: 14px; padding: 12px 18px; min-height: 52px;
   background: transparent; touch-action: pan-y; transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1); }
 .item.dragging .slide { transition: none; }
@@ -109,7 +111,7 @@ h1 { font-size: 40px; font-weight: 300; letter-spacing: -0.02em; line-height: 1.
 const PEOPLE_COLORS = ['255, 179, 138', '143, 211, 255', '126, 240, 198', '215, 196, 255', '255, 209, 102', '255, 156, 196'];
 const TAG = /^@([^\n]+?)\s*(?:\n|$)/;
 
-const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 const initials = (name) => name.split(/\s+/).map((p) => p[0]).join('').slice(0, 2).toUpperCase();
 
 // "@Judy\nBring the blue one" -> { who: "Judy", notes: "Bring the blue one" }
@@ -302,7 +304,8 @@ class AthanListCard extends HTMLElement {
     add.addEventListener('focusout', () => setTimeout(() => {
       if (!add.contains(this.shadowRoot.activeElement)) add.classList.remove('active');
     }));
-    add.querySelector('.who')?.addEventListener('click', (e) => {
+    const who = add.querySelector('.who');
+    if (who) who.addEventListener('click', (e) => {
       const chip = e.target.closest('.chip');
       if (!chip) return;
       this._addWho = chip.dataset.who || null;
@@ -369,12 +372,14 @@ class AthanListCard extends HTMLElement {
     this._renderFooter();
     if (this._focusEditor) {
       this._focusEditor = false;
-      list.querySelector('.editor input')?.focus();
+      const first = list.querySelector('.editor input');
+      if (first) first.focus();
     }
   }
 
   _group(g, items) {
-    const collapsed = this._ui.groups[g.key] ?? (g.done && items.length > 3);
+    const saved = this._ui.groups[g.key];
+    const collapsed = saved === undefined ? g.done && items.length > 3 : saved;
     const head = g.label === null ? '' : `
       <div class="group-head">
         <button class="toggle" data-group="${esc(g.key)}" aria-expanded="${!collapsed}">
@@ -525,7 +530,7 @@ class AthanListCard extends HTMLElement {
 
   _closeEditor() {
     this._open = null;
-    this.shadowRoot.activeElement?.blur();
+    if (this.shadowRoot.activeElement) this.shadowRoot.activeElement.blur();
     this._render();
   }
 

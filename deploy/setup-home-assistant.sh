@@ -518,13 +518,18 @@ async def main():
             "/local/community/layout-card-2.4.7.js": "module",
             "/local/community/mushroom-5.2.3.js": "module",
             "/local/athan-tv-nav.js?v=1": "module",
-            "/local/athan-list-card.js?v=1": "module",
+            "/local/athan-list-card.js?v=2": "module",
             "https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;700&display=swap": "css",
         }
-        have = {r["url"] for r in (await call({"type": "lovelace/resources"}))["result"]}
+        # A resource is matched by its path, so a new ?v= replaces the old one
+        # instead of loading both.
+        have = {r["url"].split("?")[0]: r for r in (await call({"type": "lovelace/resources"}))["result"]}
         for url, res_type in wanted.items():
-            if url not in have:
+            old = have.get(url.split("?")[0])
+            if old is None:
                 await call({"type": "lovelace/resources/create", "url": url, "res_type": res_type})
+            elif old["url"] != url and url.startswith("/local/athan-"):
+                await call({"type": "lovelace/resources/update", "resource_id": old["id"], "url": url, "res_type": res_type})
         await call({"type": "call_service", "domain": "frontend", "service": "reload_themes"})
         await call({"type": "call_service", "domain": "frontend", "service": "set_theme",
                     "service_data": {"name": "Athan Glass", "mode": "light"}})

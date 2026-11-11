@@ -1203,11 +1203,12 @@
       "theme": "Athan Glass",
       "type": "custom:grid-layout",
       "layout": {
-        "grid-template-columns": "repeat(auto-fit, minmax(min(100%, 520px), 1fr))",
+        "grid-template-columns": "repeat(auto-fit, minmax(520px, 1fr))",
         "grid-gap": "18px",
         "padding": "8px 20px 24px",
         "mediaquery": {
-          "(max-width: 1000px)": {
+          "(max-width: 700px)": {
+            "grid-template-columns": "minmax(0, 1fr)",
             "padding": "8px 12px 24px"
           }
         }
@@ -1220,11 +1221,12 @@
       "theme": "Athan Glass",
       "type": "custom:grid-layout",
       "layout": {
-        "grid-template-columns": "repeat(auto-fit, minmax(min(100%, 360px), 1fr))",
+        "grid-template-columns": "repeat(auto-fit, minmax(360px, 1fr))",
         "grid-gap": "18px",
         "padding": "8px 20px 24px",
         "mediaquery": {
-          "(max-width: 1000px)": {
+          "(max-width: 700px)": {
+            "grid-template-columns": "minmax(0, 1fr)",
             "padding": "8px 12px 24px"
           }
         },
