@@ -6,16 +6,21 @@ answers 406 Not Acceptable), so this signs in the way the Ring app does
 (OAuth v2 with PKCE), then hands the refresh token to go2rtc and adds each
 Ring camera as a go2rtc stream named after it ("Front Door" -> front_door).
 
-Run on the Hub: python3 /opt/athan-hub/deploy/ring-login.py
-It asks for the Ring email, password and the 2FA code Ring sends. Nothing is
-stored except the token inside go2rtc's config. Then rerun
-setup-home-assistant.sh --dashboard-only to put the Talk button on the card.
+Home Assistant runs it in two steps from the Cameras page (the "Ring talk
+sign-in" and "Ring talk code" scripts), which is the normal way:
+  ring-login.py start <base64 JSON {"email", "password"}>   sends Ring's code
+  ring-login.py finish <code>                               adds the streams
+Between the two, the half-finished sign-in (cookies, PKCE verifier, never the
+password) waits in a root-only file next to this script.
+
+In a terminal on the Hub, python3 ring-login.py asks for everything at once.
 """
 import base64
 import getpass
 import hashlib
 import http.cookiejar
 import json
+import os
 import re
 import secrets
 import sys
@@ -29,6 +34,8 @@ CLIENT_ID = "ring_official_android"
 REDIRECT_URI = "https://ring.com/signin/callback"
 USER_AGENT = "android:com.ringapp"
 GO2RTC = "http://127.0.0.1:1984"
+STATE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ring-login.state")
+COOKIES = STATE + ".cookies"
 
 
 class NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -45,13 +52,41 @@ def stream_name(description):
 
 
 class RingLogin:
-    def __init__(self):
-        self.hardware_id = str(uuid.uuid4())
-        self.verifier = b64url(secrets.token_bytes(32))
-        self.state = secrets.token_hex(16)
-        self.cookies = http.cookiejar.CookieJar()
+    def __init__(self, saved=None):
+        saved = saved or {}
+        self.hardware_id = saved.get("hid") or str(uuid.uuid4())
+        self.verifier = saved.get("verifier") or b64url(secrets.token_bytes(32))
+        self.state = saved.get("state") or secrets.token_hex(16)
+        self.csrf = saved.get("csrf")
+        self.cookies = http.cookiejar.LWPCookieJar(COOKIES)
+        if saved:
+            self.cookies.load(ignore_discard=True, ignore_expires=True)
         self.opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(self.cookies), NoRedirect)
-        self.csrf = None
+
+    def save(self):
+        old = os.umask(0o077)
+        try:
+            self.cookies.save(ignore_discard=True, ignore_expires=True)
+            with open(STATE, "w") as handle:
+                json.dump({"hid": self.hardware_id, "verifier": self.verifier, "state": self.state, "csrf": self.csrf}, handle)
+        finally:
+            os.umask(old)
+
+    @staticmethod
+    def resume():
+        try:
+            with open(STATE) as handle:
+                return RingLogin(json.load(handle))
+        except FileNotFoundError:
+            raise SystemExit("No Ring sign-in is waiting for a code. Run the Ring talk sign-in first.")
+
+    @staticmethod
+    def forget():
+        for path in (STATE, COOKIES):
+            try:
+                os.remove(path)
+            except FileNotFoundError:
+                pass
 
     def request(self, url, form=None, accept="text/html,application/json;q=0.9,*/*;q=0.8"):
         data = urllib.parse.urlencode(form).encode() if form is not None else None
@@ -113,8 +148,11 @@ class RingLogin:
         location = headers.get("Location") or ""
         if status == 412 or "tsv_state" in data or "next_time_in_secs" in data or "/2fa" in location:
             return True
-        if status in (400, 401, 403):
-            raise SystemExit("Ring did not accept that email and password.")
+        # Ring answers a wrong email or password with 400/401/403, and lately
+        # sometimes with its firewall's 406; to the person both mean the same.
+        if status in (400, 401, 403, 406):
+            raise SystemExit("Ring did not accept that email and password. Check them and try again; "
+                             "if they are right, wait a few minutes first.")
         if status >= 400:
             raise SystemExit(f"Ring refused the sign-in (HTTP {status}): {body[:200]}")
         return False
@@ -158,23 +196,42 @@ def add_streams(token):
         put = urllib.request.Request(
             f"{GO2RTC}/api/streams?{urllib.parse.urlencode({'name': name, 'src': source['url']})}", method="PUT")
         urllib.request.urlopen(put, timeout=30).close()
-        added.append(f"{source['name']} -> {name}")
+        added.append(source["name"])
     return added
 
 
-def main():
-    login = RingLogin()
-    login.open_authorize()
-    email = input("Ring email: ").strip()
-    password = getpass.getpass("Ring password: ")
-    if login.sign_in(email, password):
-        login.verify(input("Code Ring just sent you: ").strip())
+def finish(login):
     token = login.refresh_token()
     added = add_streams(token)
+    RingLogin.forget()
     if not added:
         raise SystemExit("Signed in, but go2rtc found no Ring cameras on the account.")
-    print("Added to go2rtc:\n  " + "\n  ".join(added))
-    print("Now run: sudo bash /opt/athan-hub/deploy/setup-home-assistant.sh --dashboard-only")
+    print("Ring talk is signed in for " + ", ".join(added) + ". Reopen the Cameras page.")
+
+
+def main(args):
+    if args[:1] == ["start"]:
+        creds = json.loads(base64.b64decode(args[1]))
+        RingLogin.forget()
+        login = RingLogin()
+        login.open_authorize()
+        if login.sign_in(creds["email"].strip(), creds["password"]):
+            login.save()
+            print("Ring has sent you a code. Enter it in Ring talk code on the Cameras page within 10 minutes.")
+        else:
+            finish(login)
+    elif args[:1] == ["finish"]:
+        login = RingLogin.resume()
+        login.verify(args[1].strip())
+        finish(login)
+    else:
+        login = RingLogin()
+        login.open_authorize()
+        email = input("Ring email: ").strip()
+        password = getpass.getpass("Ring password: ")
+        if login.sign_in(email, password):
+            login.verify(input("Code Ring just sent you: ").strip())
+        finish(login)
 
 
 if __name__ == "__main__":
@@ -184,4 +241,4 @@ if __name__ == "__main__":
         assert stream_name("Front Door") == "front_door" and stream_name("Back  Garden 2") == "back_garden_2"
         print("Ring sign-in page reachable; csrf token found.")
     else:
-        main()
+        main(sys.argv[1:])

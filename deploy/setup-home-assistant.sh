@@ -383,6 +383,67 @@ printf '%s\n%s\n' "$1" "$2" > /config/athan/camera-wifi.tmp && mv /config/athan/
 SH
 chmod 0700 "$CONFIG_DIR/athan/camera-wifi-request"
 
+# Ring talk: go2rtc needs its own Ring sign-in for two-way audio. These two
+# scripts (buttons under the Ring video) run deploy/ring-login.py inside Home
+# Assistant: the first sends Ring's code, the second finishes with it.
+install -m 0700 "$SCRIPT_DIR/ring-login.py" "$CONFIG_DIR/athan/ring-login.py"
+cat > "$CONFIG_DIR/packages/athan_hub_ring.yaml" <<'YAML'
+# Written by athan-hub deploy/setup-home-assistant.sh; edits are overwritten.
+shell_command:
+  ring_talk_start: "python3 /config/athan/ring-login.py start {{ creds }}"
+  ring_talk_finish: "python3 /config/athan/ring-login.py finish {{ code }}"
+script ring_talk:
+  ring_talk_sign_in:
+    alias: Ring talk sign-in
+    icon: mdi:doorbell-video
+    description: Lets you talk through the Ring doorbell from the Cameras page. Ring then sends a code; enter it in Ring talk code.
+    fields:
+      email:
+        name: Ring email
+        required: true
+        selector:
+          text:
+            type: email
+      password:
+        name: Ring password
+        required: true
+        selector:
+          text:
+            type: password
+    sequence:
+      - action: shell_command.ring_talk_start
+        continue_on_error: true
+        data:
+          creds: "{{ {'email': email, 'password': password} | to_json | base64_encode }}"
+        response_variable: result
+      - action: persistent_notification.create
+        data:
+          notification_id: ring_talk
+          title: Ring talk
+          message: "{{ (result.stdout or result.stderr) if result is defined else 'The sign-in did not run.' }}"
+  ring_talk_code:
+    alias: Ring talk code
+    icon: mdi:form-textbox-password
+    description: The code Ring sent after Ring talk sign-in.
+    fields:
+      code:
+        name: Code from Ring
+        required: true
+        selector:
+          text:
+    sequence:
+      - action: shell_command.ring_talk_finish
+        continue_on_error: true
+        data:
+          code: "{{ code | regex_replace('[^0-9]', '') }}"
+        response_variable: result
+      - action: persistent_notification.create
+        data:
+          notification_id: ring_talk
+          title: Ring talk
+          message: "{{ (result.stdout or result.stderr) if result is defined else 'The code was not checked.' }}"
+YAML
+
 # --package-only: athan-audio-sync changed the athan URLs; reload the package's
 # scripts and automations without restarting Home Assistant.
 if [[ "${1:-}" == "--package-only" ]]; then
@@ -488,11 +549,6 @@ async def main():
         ring = [e for e in entities if e["platform"] == "ring" and not e["disabled_by"] and not e.get("hidden_by")]
         cams = [e for e in ring if e["entity_id"].startswith("camera.")]
         cams = [e for e in cams if "live_view" in (e.get("translation_key") or e["entity_id"])] or cams
-        try:
-            async with session.get("http://127.0.0.1:1984/api/streams") as reply:
-                go2rtc_streams = set(await reply.json())
-        except Exception:
-            go2rtc_streams = set()
 
         def control(e):
             domain = e["entity_id"].split(".")[0]
@@ -509,14 +565,14 @@ async def main():
 
         controls = [control(e) for e in ring if not e["entity_id"].startswith("camera.")
                     and (e.get("entity_category") != "diagnostic" or e["entity_id"].endswith("_battery"))]
+        controls += [{"type": "tile", "entity": f"script.{name}", "tap_action": {"action": "more-info"},
+                      "icon_tap_action": {"action": "more-info"}} for name in ("ring_talk_sign_in", "ring_talk_code")]
         ring_cards = []
         for cam in cams:
             slug = cam["entity_id"].split(".", 1)[1].removesuffix("_live_view")
-            if slug in go2rtc_streams:
-                video = {"type": "custom:cam720-talk-card", "stream": slug, "title": "Hold to talk",
-                         "ready_delay": 0, "flip": False}
-            else:
-                video = {"type": "picture-entity", "entity": cam["entity_id"], "camera_view": "live", "show_state": False}
+            # go2rtc's stream of the same name comes from the Ring talk sign-in buttons below.
+            video = {"type": "custom:cam720-talk-card", "stream": slug, "title": "Hold to talk",
+                     "ready_delay": 0, "flip": False}
             ring_cards.append({"type": "vertical-stack", "cards": [video] + (
                 [{"type": "grid", "columns": 1, "square": False, "cards": controls}] if controls and cam is cams[0] else [])})
         for view in home["views"]:
