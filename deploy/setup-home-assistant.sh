@@ -43,6 +43,7 @@ fetch_card layout-card-2.4.7.js https://raw.githubusercontent.com/thomasloven/lo
 fetch_card mushroom-5.2.3.js https://github.com/piitaya/lovelace-mushroom/releases/download/v5.2.3/mushroom.js
 install -m 0644 "$SCRIPT_DIR/homeassistant/themes/athan_glass.yaml" "$CONFIG_DIR/themes/athan_glass.yaml"
 install -m 0644 "$SCRIPT_DIR/homeassistant/www/athan-tv-nav.js" "$CONFIG_DIR/www/athan-tv-nav.js"
+install -m 0644 "$SCRIPT_DIR/homeassistant/www/athan-list-card.js" "$CONFIG_DIR/www/athan-list-card.js"
 
 if [[ ! -f "$CONFIG_DIR/custom_components/alexa_media/manifest.json" ]]; then
   log "Installing Alexa Media Player"
@@ -363,6 +364,13 @@ if [[ -n "$camera_ip" ]]; then
     printf '      - action: rest_command.camera_ptz\n'
     printf '        data:\n'
     printf '          body: <Stop xmlns="http://www.onvif.org/ver20/ptz/wsdl"><ProfileToken>profile_0</ProfileToken><PanTilt>true</PanTilt></Stop>\n'
+    # The flip buttons on each camera card turn the picture (and its PTZ arrows)
+    # for every viewer, to match how the camera is mounted.
+    printf 'input_boolean:\n'
+    for lens in 1 2; do
+      printf '  camera_flip_lens_%s:\n    name: Mirror camera lens %s\n    icon: mdi:flip-horizontal\n' "$lens" "$lens"
+      printf '  camera_flip_v_lens_%s:\n    name: Flip camera lens %s upside down\n    icon: mdi:flip-vertical\n' "$lens" "$lens"
+    done
   } > "$CONFIG_DIR/packages/athan_hub_camera.yaml"
 else
   rm -f "$CONFIG_DIR/packages/athan_hub_camera.yaml"
@@ -385,11 +393,14 @@ if [[ "${1:-}" == "--package-only" ]]; then
   exit 0
 fi
 
-# Home Assistant moved http settings from YAML into .storage/http; once migrated the
-# YAML block is ignored, so set the proxy trust there too (with Home Assistant stopped).
-if [[ -f "$CONFIG_DIR/.storage/http" ]]; then
-  docker stop homeassistant >/dev/null 2>&1 || true
-  python3 - "$CONFIG_DIR/.storage/http" <<'PY'
+# --dashboard-only: rebuild the dashboards (after signing in to Ring, say)
+# without restarting Home Assistant.
+if [[ "${1:-}" != "--dashboard-only" ]]; then
+  # Home Assistant moved http settings from YAML into .storage/http; once migrated the
+  # YAML block is ignored, so set the proxy trust there too (with Home Assistant stopped).
+  if [[ -f "$CONFIG_DIR/.storage/http" ]]; then
+    docker stop homeassistant >/dev/null 2>&1 || true
+    python3 - "$CONFIG_DIR/.storage/http" <<'PY'
 import json, sys
 path = sys.argv[1]
 with open(path) as handle:
@@ -398,22 +409,23 @@ store["data"]["stable"].update({"use_x_forwarded_for": True, "trusted_proxies": 
 with open(path, "w") as handle:
     json.dump(store, handle, indent=2)
 PY
-fi
+  fi
 
-if ! docker inspect homeassistant >/dev/null 2>&1; then
-  log "Starting Home Assistant"
-  docker pull -q "$IMAGE"
-  docker run -d --name homeassistant --restart=unless-stopped --privileged --network=host \
-    -e TZ="$(timedatectl show -p Timezone --value 2>/dev/null || echo Europe/London)" \
-    -v "$CONFIG_DIR:/config" -v /run/dbus:/run/dbus:ro "$IMAGE" >/dev/null
-else
-  docker restart homeassistant >/dev/null
-fi
+  if ! docker inspect homeassistant >/dev/null 2>&1; then
+    log "Starting Home Assistant"
+    docker pull -q "$IMAGE"
+    docker run -d --name homeassistant --restart=unless-stopped --privileged --network=host \
+      -e TZ="$(timedatectl show -p Timezone --value 2>/dev/null || echo Europe/London)" \
+      -v "$CONFIG_DIR:/config" -v /run/dbus:/run/dbus:ro "$IMAGE" >/dev/null
+  else
+    docker restart homeassistant >/dev/null
+  fi
 
-for _ in $(seq 1 60); do
-  curl -fsS -o /dev/null http://127.0.0.1:8123/ && break
-  sleep 5
-done
+  for _ in $(seq 1 60); do
+    curl -fsS -o /dev/null http://127.0.0.1:8123/ && break
+    sleep 5
+  done
+fi
 
 token="$(ha_value ATHAN_HA_TOKEN)"
 if [[ -n "$token" ]]; then
@@ -445,6 +457,7 @@ async def main():
             "/local/community/layout-card-2.4.7.js": "module",
             "/local/community/mushroom-5.2.3.js": "module",
             "/local/athan-tv-nav.js?v=1": "module",
+            "/local/athan-list-card.js?v=1": "module",
             "https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;700&display=swap": "css",
         }
         have = {r["url"] for r in (await call({"type": "lovelace/resources"}))["result"]}
@@ -456,9 +469,63 @@ async def main():
                     "service_data": {"name": "Athan Glass", "mode": "light"}})
         await call({"type": "call_service", "domain": "frontend", "service": "set_theme",
                     "service_data": {"name": "Athan Glass", "mode": "dark"}})
+        # The Lists view's family lists (the Shopping list is Home Assistant's own).
+        # Each list's entity id comes from its name; reruns abort as already configured.
+        headers = {"Authorization": "Bearer " + os.environ["T"]}
+        flow_url = "http://127.0.0.1:8123/api/config/config_entries/flow"
+        for name in ["To-do", "Chores", "Packing"]:
+            async with session.post(flow_url, json={"handler": "local_todo"}, headers=headers) as reply:
+                flow = await reply.json()
+            if flow.get("type") == "form":
+                async with session.post(f"{flow_url}/{flow['flow_id']}", json={"todo_list_name": name}, headers=headers) as reply:
+                    await reply.read()
+
+        home = json.load(open("/tmp/home-dashboard.json"))
+        # Ring doorbells and cameras join the Cameras view once the Ring integration is
+        # signed in: live video (with hold-to-talk when go2rtc has a Ring stream of the
+        # same name, see docs/INSTALL.md) and every Ring control underneath.
+        entities = (await call({"type": "config/entity_registry/list"}))["result"]
+        ring = [e for e in entities if e["platform"] == "ring" and not e["disabled_by"] and not e.get("hidden_by")]
+        cams = [e for e in ring if e["entity_id"].startswith("camera.")]
+        cams = [e for e in cams if "live_view" in (e.get("translation_key") or e["entity_id"])] or cams
+        try:
+            async with session.get("http://127.0.0.1:1984/api/streams") as reply:
+                go2rtc_streams = set(await reply.json())
+        except Exception:
+            go2rtc_streams = set()
+
+        def control(e):
+            domain = e["entity_id"].split(".")[0]
+            tile = {"type": "tile", "entity": e["entity_id"]}
+            if domain == "number":
+                tile["features"] = [{"type": "numeric-input", "style": "slider"}]
+                tile["features_position"] = "inline"
+            elif domain == "siren":
+                tile["tap_action"] = {"action": "more-info"}  # no siren from a stray tap
+                tile["icon_tap_action"] = {"action": "more-info"}
+            elif domain in ("switch", "light"):
+                tile["tap_action"] = {"action": "toggle"}
+            return tile
+
+        controls = [control(e) for e in ring if not e["entity_id"].startswith("camera.")
+                    and (e.get("entity_category") != "diagnostic" or e["entity_id"].endswith("_battery"))]
+        ring_cards = []
+        for cam in cams:
+            slug = cam["entity_id"].split(".", 1)[1].removesuffix("_live_view")
+            if slug in go2rtc_streams:
+                video = {"type": "custom:cam720-talk-card", "stream": slug, "title": "Hold to talk",
+                         "ready_delay": 0, "flip": False}
+            else:
+                video = {"type": "picture-entity", "entity": cam["entity_id"], "camera_view": "live", "show_state": False}
+            ring_cards.append({"type": "vertical-stack", "cards": [video] + (
+                [{"type": "grid", "columns": 1, "square": False, "cards": controls}] if controls and cam is cams[0] else [])})
+        for view in home["views"]:
+            if view["path"] == "cameras":
+                view["cards"] += ring_cards
+
         existing = {d["url_path"] for d in (await call({"type": "lovelace/dashboards/list"}))["result"]}
         dashboards = {
-            "home-dashboard": ("Home", "mdi:home-variant", json.load(open("/tmp/home-dashboard.json"))),
+            "home-dashboard": ("Home", "mdi:home-variant", home),
             "athan-hub": ("Athan Hub", "mdi:mosque", {"views": [{
                 "title": "Athan Hub", "path": "athan-hub", "type": "panel",
                 "cards": [{"type": "iframe", "url": os.environ["URL"], "aspect_ratio": "100%"}]}]}),

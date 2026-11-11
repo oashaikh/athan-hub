@@ -92,6 +92,10 @@ The TV page's camera card uses WebRTC Camera, which the installer copies into Ho
 
 Two-way talk goes over the camera's ThroughTek Kalay DTLS channel. The sign-in key, `device_pwd`, is held in Jooan's cloud and reaches Home Assistant through a one-time extraction with a Windows CAM720 install and a trusted mitmproxy run from the Hub. The procedure, the protocol notes and the open research questions are in [docs/CAM720.md](docs/CAM720.md). Once extracted, the token goes in `/etc/athan-hub/athan-hub.env` as `ATHAN_HA_CAMERA_P2P_TOKEN=` and the camera can be blocked from the internet at the router.
 
+The **Lists** page holds the family's Shopping, To-do, Chores and Packing lists. Items on To-do, Chores and Packing can be assigned to a person in Home Assistant (stored as an `@Name` first line in the item's notes) and are grouped by person; lists and groups fold away with a tap. Swipe an item left to delete it, or tap the select button to delete several or all; each delete can be undone for six seconds.
+
+Ring doorbells and cameras appear on the Cameras page after the Ring integration is signed in and `setup-home-assistant.sh --dashboard-only` is run, with every Ring control (motion detection, chime, volumes, siren) under the video. For hold-to-talk, go2rtc needs its own Ring sign-in (sharing Home Assistant's token risks signing it out). Ring now refuses go2rtc's built-in Ring login page with `406 Not Acceptable`, so run `python3 /opt/athan-hub/deploy/ring-login.py` on the Hub instead: it signs in the way the Ring app does, asks for the 2FA code, and adds each Ring camera to go2rtc under its name (`front_door` for Front Door). Rerun `--dashboard-only` and the card gains a Talk button.
+
 For access away from home, install Tailscale (free for personal use) and sign in: `curl -fsSL https://tailscale.com/install.sh | sh`, then `sudo tailscale up --accept-dns=false --hostname=athan`. `--accept-dns=false` keeps the machine on its own DNS, so Pi-hole is unaffected. Home Assistant is then reachable at `http://athan` from any device signed in to the same Tailscale account. Tailscale SSH is not needed and stays off.
 
 ### Uploading athans

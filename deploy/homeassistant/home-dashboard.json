@@ -35,13 +35,13 @@
                   "ha-markdown$": "h1 { font-size: 84px; font-weight: 300; letter-spacing: -3px; line-height: 1; margin: 4px 0 14px; } p { margin: 2px 0; font-size: 18px; opacity: 0.92; } @media (max-width: 700px) { h1 { font-size: 64px; } }"
                 }
               },
-              "content": "# {{ now().strftime('%H:%M') }}\n{{ now().strftime('%A') }} {{ now().day }} {{ now().strftime('%B') }}\n\n**Week {{ now().isocalendar()[1] }}** · {% if now().hour < 12 %}Good morning{% elif now().hour < 18 %}Good afternoon{% else %}Good evening{% endif %}"
+              "content": "# {{ now().strftime('%H:%M') }}\n{{ now().strftime('%A') }} {{ now().day }} {{ now().strftime('%B') }}\n\n**Week {{ now().isocalendar()[1] }}** \u00b7 {% if now().hour < 12 %}Good morning{% elif now().hour < 18 %}Good afternoon{% else %}Good evening{% endif %}"
             },
             {
               "type": "custom:mushroom-template-card",
               "entity": "weather.forecast_home",
-              "primary": "{{ (state_attr('weather.forecast_home', 'temperature') or 0) | round(0) }}°C · {{ states('weather.forecast_home') | replace('partlycloudy', 'partly cloudy') | replace('clear-night', 'clear') | title }}",
-              "secondary": "Humidity {{ state_attr('weather.forecast_home', 'humidity') }}% · Wind {{ (state_attr('weather.forecast_home', 'wind_speed') or 0) | round(0) }} {{ state_attr('weather.forecast_home', 'wind_speed_unit') }}",
+              "primary": "{{ (state_attr('weather.forecast_home', 'temperature') or 0) | round(0) }}\u00b0C \u00b7 {{ states('weather.forecast_home') | replace('partlycloudy', 'partly cloudy') | replace('clear-night', 'clear') | title }}",
+              "secondary": "Humidity {{ state_attr('weather.forecast_home', 'humidity') }}% \u00b7 Wind {{ (state_attr('weather.forecast_home', 'wind_speed') or 0) | round(0) }} {{ state_attr('weather.forecast_home', 'wind_speed_unit') }}",
               "icon": "{% set c = states('weather.forecast_home') %}{{ {'clear-night':'mdi:weather-night','cloudy':'mdi:weather-cloudy','fog':'mdi:weather-fog','rainy':'mdi:weather-rainy','pouring':'mdi:weather-pouring','snowy':'mdi:weather-snowy','sunny':'mdi:weather-sunny','windy':'mdi:weather-windy','partlycloudy':'mdi:weather-partly-cloudy','lightning-rainy':'mdi:weather-lightning-rainy'}.get(c, 'mdi:weather-cloudy') }}",
               "icon_color": "white",
               "tap_action": {
@@ -57,7 +57,7 @@
                   "ha-markdown$": "table { width: 100%; border-collapse: collapse; font-size: 18px; } td, th, tr { border: none !important; } td { padding: 8px 2px; border-bottom: 1px solid rgba(255,255,255,0.12) !important; } tr:last-child td { border-bottom: none !important; } td:last-child { text-align: right; font-variant-numeric: tabular-nums; }"
                 }
               },
-              "content": "{% set next = states('sensor.next_prayer') | lower %}{% set p = state_attr('sensor.prayer_times_today', 'prayers') or {} %}<table>{% for key, label in [('fajr','Fajr'),('shurooq','Sunrise'),('dhuhr','Dhuhr'),('asr','Asr'),('maghrib','Maghrib'),('isha','Isha')] %}{% set t = (p.get(key) or {}).get('effective', '–') %}<tr>{% if key == next %}<td><b><font color=\"#ffd166\">{{ label }}</font></b></td><td><b><font color=\"#ffd166\">{{ t }}</font></b></td>{% else %}<td>{{ label }}</td><td>{{ t }}</td>{% endif %}</tr>{% endfor %}</table>"
+              "content": "{% set next = states('sensor.next_prayer') | lower %}{% set p = state_attr('sensor.prayer_times_today', 'prayers') or {} %}<table>{% for key, label in [('fajr','Fajr'),('shurooq','Sunrise'),('dhuhr','Dhuhr'),('asr','Asr'),('maghrib','Maghrib'),('isha','Isha')] %}{% set t = (p.get(key) or {}).get('effective', '\u2013') %}<tr>{% if key == next %}<td><b><font color=\"#ffd166\">{{ label }}</font></b></td><td><b><font color=\"#ffd166\">{{ t }}</font></b></td>{% else %}<td>{{ label }}</td><td>{{ t }}</td>{% endif %}</tr>{% endfor %}</table>"
             }
           ]
         },
@@ -72,7 +72,7 @@
               "ha-markdown$": "h2 { font-size: 14px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; opacity: 0.8; margin: 0 0 4px; } h1 { font-size: 64px; font-weight: 700; line-height: 1.05; margin: 0; letter-spacing: -1.5px; } p { font-size: 20px; margin: 10px 0 0; opacity: 0.92; } @media (max-width: 700px) { h1 { font-size: 48px; } p { font-size: 17px; } }"
             }
           },
-          "content": "{% set t = states('sensor.next_prayer_time') %}## Next prayer\n# {{ states('sensor.next_prayer') }}\n{% if t not in ['unknown', 'unavailable'] %}{% set mins = ((as_datetime(t) - now()).total_seconds() // 60) | int %}{{ as_local(as_datetime(t)).strftime('%H:%M') }} · in {% if mins >= 60 %}{{ mins // 60 }} h {% endif %}{{ mins % 60 }} min · plays on the Hallway Echo Pop{% else %}Waiting for Athan Hub{% endif %}"
+          "content": "{% set t = states('sensor.next_prayer_time') %}## Next prayer\n# {{ states('sensor.next_prayer') }}\n{% if t not in ['unknown', 'unavailable'] %}{% set mins = ((as_datetime(t) - now()).total_seconds() // 60) | int %}{{ as_local(as_datetime(t)).strftime('%H:%M') }} \u00b7 in {% if mins >= 60 %}{{ mins // 60 }} h {% endif %}{{ mins % 60 }} min \u00b7 plays on the Hallway Echo Pop{% else %}Waiting for Athan Hub{% endif %}"
         },
         {
           "type": "grid",
@@ -280,7 +280,7 @@
               "type": "custom:mushroom-template-card",
               "entity": "script.play_athan_on_echo",
               "primary": "Play athan now",
-              "secondary": "{{ 'Playing on the Echo' if is_state('script.play_athan_on_echo', 'on') else 'Ahmed Al-Nufais · 3 min 34 s' }}",
+              "secondary": "{{ 'Playing on the Echo' if is_state('script.play_athan_on_echo', 'on') else 'Ahmed Al-Nufais \u00b7 3 min 34 s' }}",
               "icon": "mdi:mosque",
               "icon_color": "amber",
               "tap_action": {
@@ -398,68 +398,19 @@
       "type": "custom:grid-layout",
       "layout": {
         "grid-template-columns": "minmax(0, 1fr) minmax(0, 1fr)",
-        "grid-template-areas": "\"cam remote\" \"now remote\" \"apps remote\"",
+        "grid-template-areas": "\"now remote\" \"apps remote\"",
         "grid-gap": "18px",
         "padding": "8px 20px 24px",
         "max-width": "1200px",
         "mediaquery": {
           "(max-width: 1000px)": {
             "grid-template-columns": "minmax(0, 1fr)",
-            "grid-template-areas": "\"cam\" \"now\" \"remote\" \"apps\"",
+            "grid-template-areas": "\"now\" \"remote\" \"apps\"",
             "padding": "8px 12px 24px"
           }
         }
       },
       "cards": [
-        {
-          "type": "vertical-stack",
-          "view_layout": {
-            "grid-area": "cam"
-          },
-          "cards": [
-            {
-              "type": "custom:webrtc-camera",
-              "entity": "camera.192_168_1_144",
-              "title": "Kids bedroom",
-              "media": "video,audio",
-              "muted": true,
-              "ui": true,
-              "ptz": {
-                "service": "script.camera_move",
-                "data_left": {
-                  "pan": -0.6,
-                  "tilt": 0
-                },
-                "data_right": {
-                  "pan": 0.6,
-                  "tilt": 0
-                },
-                "data_up": {
-                  "pan": 0,
-                  "tilt": 0.6
-                },
-                "data_down": {
-                  "pan": 0,
-                  "tilt": -0.6
-                }
-              },
-              "shortcuts": [
-                {
-                  "name": "Camera Wi-Fi setup",
-                  "icon": "mdi:wifi-cog",
-                  "more_info": "script.camera_wifi_setup"
-                }
-              ]
-            },
-            {
-              "type": "custom:webrtc-camera",
-              "entity": "camera.192_168_1_144_2",
-              "media": "video,audio",
-              "muted": true,
-              "ui": true
-            }
-          ]
-        },
         {
           "type": "custom:mushroom-media-player-card",
           "view_layout": {
@@ -1205,6 +1156,115 @@
               ]
             }
           ]
+        }
+      ]
+    },
+    {
+      "title": "Cameras",
+      "path": "cameras",
+      "icon": "mdi:cctv",
+      "cards": [
+        {
+          "type": "custom:cam720-talk-card",
+          "stream": "crib0",
+          "title": "Hold to talk",
+          "flip_entity": "input_boolean.camera_flip_lens_1",
+          "flip_v_entity": "input_boolean.camera_flip_v_lens_1",
+          "ptz": {
+            "service": "script.camera_move",
+            "opacity": 0.6,
+            "data_left": {
+              "pan": -0.6,
+              "tilt": 0
+            },
+            "data_right": {
+              "pan": 0.6,
+              "tilt": 0
+            },
+            "data_up": {
+              "pan": 0,
+              "tilt": 0.6
+            },
+            "data_down": {
+              "pan": 0,
+              "tilt": -0.6
+            }
+          }
+        },
+        {
+          "type": "custom:cam720-talk-card",
+          "stream": "crib1",
+          "title": "Hold to talk",
+          "talk": false,
+          "flip_entity": "input_boolean.camera_flip_lens_2",
+          "flip_v_entity": "input_boolean.camera_flip_v_lens_2"
+        }
+      ],
+      "theme": "Athan Glass",
+      "type": "custom:grid-layout",
+      "layout": {
+        "grid-template-columns": "repeat(auto-fit, minmax(min(100%, 520px), 1fr))",
+        "grid-gap": "18px",
+        "padding": "8px 20px 24px",
+        "mediaquery": {
+          "(max-width: 1000px)": {
+            "padding": "8px 12px 24px"
+          }
+        }
+      }
+    },
+    {
+      "title": "Lists",
+      "path": "lists",
+      "icon": "mdi:format-list-checks",
+      "theme": "Athan Glass",
+      "type": "custom:grid-layout",
+      "layout": {
+        "grid-template-columns": "repeat(auto-fit, minmax(min(100%, 360px), 1fr))",
+        "grid-gap": "18px",
+        "padding": "8px 20px 24px",
+        "mediaquery": {
+          "(max-width: 1000px)": {
+            "padding": "8px 12px 24px"
+          }
+        },
+        "align-items": "start"
+      },
+      "cards": [
+        {
+          "type": "custom:athan-list-card",
+          "entity": "todo.shopping_list",
+          "title": "Shopping",
+          "color": "255, 209, 102",
+          "count": "{n} to get",
+          "empty": "All stocked",
+          "order": "alpha"
+        },
+        {
+          "type": "custom:athan-list-card",
+          "entity": "todo.to_do",
+          "title": "To-do",
+          "color": "126, 240, 198",
+          "count": "{n} open",
+          "empty": "All clear",
+          "order": "due"
+        },
+        {
+          "type": "custom:athan-list-card",
+          "entity": "todo.chores",
+          "title": "Chores",
+          "color": "143, 211, 255",
+          "count": "{n} left",
+          "empty": "All done",
+          "order": "due"
+        },
+        {
+          "type": "custom:athan-list-card",
+          "entity": "todo.packing",
+          "title": "Packing",
+          "color": "215, 196, 255",
+          "count": "{n} to pack",
+          "empty": "All packed"
         }
       ]
     }
