@@ -443,6 +443,50 @@ script ring_talk:
           title: Ring talk
           message: "{{ (result.stdout or result.stderr) if result is defined else 'The code was not checked.' }}"
 YAML
+# A Ring battery normally loses a percent or two a day. Something holding the
+# live view open takes 6% an hour, which twice went unnoticed until the doorbell
+# died. Warn when any Ring battery has fallen 8 points within three hours.
+ring_batteries="$(python3 - "$CONFIG_DIR/.storage/core.entity_registry" <<'PY'
+import json, sys
+try:
+    entities = json.load(open(sys.argv[1]))["data"]["entities"]
+except OSError:
+    entities = []
+for entity in entities:
+    if entity["platform"] == "ring" and entity["entity_id"].endswith("_battery") and not entity["disabled_by"]:
+        print(entity["entity_id"])
+PY
+)"
+if [[ -n "$ring_batteries" ]]; then
+  alert_service="$(ha_value ATHAN_HA_ALERT_SERVICE)"
+  {
+    printf 'sensor:\n'
+    for battery in $ring_batteries; do
+      name="${battery#sensor.}"
+      printf '  - platform: statistics\n    name: %s change\n    unique_id: athan_hub_%s_change\n' "${name//_/ }" "$name"
+      printf '    entity_id: %s\n    state_characteristic: change\n    max_age:\n      hours: 3\n' "$battery"
+    done
+    printf 'automation ring_battery:\n'
+    printf '  - id: athan_hub_ring_battery_drain\n'
+    printf '    alias: Warn when a Ring battery drains fast\n'
+    printf '    mode: single\n'
+    printf '    triggers:\n'
+    printf '      - trigger: numeric_state\n'
+    printf '        entity_id:\n'
+    for battery in $ring_batteries; do printf '          - %s_change\n' "$battery"; done
+    printf '        below: -8\n'
+    printf '    actions:\n'
+    printf '      - variables:\n'
+    printf '          text: "The {{ trigger.to_state.name | replace(%s, %s) }} has lost {{ trigger.to_state.state | float(0) | abs | round(0) }} points in three hours. Something is probably keeping its live view open: close any screen showing it, and restart Home Assistant if it carries on."\n' "' change'" "''"
+    printf '      - action: persistent_notification.create\n'
+    printf '        data:\n          notification_id: ring_battery\n          title: Ring battery is draining fast\n          message: "{{ text }}"\n'
+    if [[ -n "$alert_service" ]]; then
+      printf '      - action: notify.%s\n' "$alert_service"
+      printf '        data:\n          title: Ring battery is draining fast\n          message: "{{ text }}"\n'
+    fi
+    printf '      - delay: "03:00:00"\n'  # one warning per drain, not one per percent
+  } >> "$CONFIG_DIR/packages/athan_hub_ring.yaml"
+fi
 
 # --package-only: athan-audio-sync changed the athan URLs; reload the package's
 # scripts and automations without restarting Home Assistant.
@@ -577,7 +621,7 @@ async def main():
             slug = cam["entity_id"].split(".", 1)[1].removesuffix("_live_view")
             # go2rtc's stream of the same name comes from the Ring talk sign-in buttons below.
             video = {"type": "custom:cam720-talk-card", "stream": slug, "title": "Hold to talk",
-                     "ready_delay": 0, "flip": False}
+                     "ready_delay": 0, "flip": False, "max_minutes": 5}
             ring_cards.append({"type": "vertical-stack", "cards": [video] + (
                 [{"type": "grid", "columns": 1, "square": False, "cards": controls}] if controls and cam is cams[0] else [])})
         for view in home["views"]:
