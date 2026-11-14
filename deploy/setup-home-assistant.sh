@@ -621,7 +621,7 @@ async def main():
             slug = cam["entity_id"].split(".", 1)[1].removesuffix("_live_view")
             # go2rtc's stream of the same name comes from the Ring talk sign-in buttons below.
             video = {"type": "custom:cam720-talk-card", "stream": slug, "title": "Hold to talk",
-                     "ready_delay": 0, "flip": False, "max_minutes": 5}
+                     "ready_delay": 0, "flip": False}
             ring_cards.append({"type": "vertical-stack", "cards": [video] + (
                 [{"type": "grid", "columns": 1, "square": False, "cards": controls}] if controls and cam is cams[0] else [])})
         for view in home["views"]:
