@@ -59,9 +59,9 @@ describe('athan-quran-card', () => {
   })
 
   it('plays an ayah reciter on this device ayah by ayah', async () => {
-    const { root, callWS } = mount()
+    const { card, root, callWS } = mount()
     await flush()
-    const audio = root.querySelector('audio') as HTMLAudioElement
+    const audio = (card as unknown as { _audio: HTMLAudioElement })._audio
     audio.play = vi.fn().mockResolvedValue(undefined)
     ;(root.querySelector('[data-surah="1"]') as HTMLButtonElement).click()
     await flush(); await flush()
@@ -94,5 +94,22 @@ describe('athan-quran-card', () => {
     expect(root.querySelector('.speaker .big')?.textContent).toBe('Echo')
     opts[0].click()
     expect(root.querySelector('.speaker .big')?.textContent).toBe('This device')
+  })
+
+  it('a rebuilt card still pauses what the old one started', async () => {
+    const first = mount()
+    await flush()
+    const audio = (first.card as unknown as { _audio: HTMLAudioElement })._audio
+    audio.play = vi.fn().mockResolvedValue(undefined)
+    ;(first.root.querySelector('[data-surah="1"]') as HTMLButtonElement).click()
+    await flush(); await flush()
+    first.card.remove()
+    const second = mount()
+    await flush()
+    expect(second.root.querySelector('.player .title')?.textContent).toBe('1. Al-Fatihah')
+    Object.defineProperty(audio, 'paused', { value: false, configurable: true })
+    audio.pause = vi.fn()
+    ;(second.root.querySelector('.toggle') as HTMLButtonElement).click()
+    expect(audio.pause).toHaveBeenCalled()
   })
 })

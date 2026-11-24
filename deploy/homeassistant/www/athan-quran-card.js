@@ -93,6 +93,24 @@ input::placeholder { color: rgba(255, 255, 255, 0.6); }
 `;
 
 const STORE = 'athan-quran-card';
+
+// Home Assistant rebuilds dashboard cards whenever the dashboard changes, so the
+// player lives outside any one card: a rebuilt card picks up what is playing
+// instead of leaving an orphaned recitation that no button can pause.
+const shared = { audio: null, card: null, now: null, token: null, next: null };
+function sharedAudio() {
+  if (shared.audio) return shared.audio;
+  const a = new Audio();
+  a.preload = 'auto';
+  const to = (fn) => () => { if (shared.card) fn(shared.card); };
+  a.addEventListener('ended', to((c) => c._phoneEnded()));
+  a.addEventListener('timeupdate', to((c) => c._phoneProgress()));
+  a.addEventListener('play', to((c) => c._phoneState('playing')));
+  a.addEventListener('pause', to((c) => { if (!a.ended) c._phoneState('paused'); }));
+  a.addEventListener('error', to((c) => { if (c._now && c._now.player === PHONE && a.getAttribute('src')) c._fail('That recording could not be played.'); }));
+  shared.audio = a;
+  return a;
+}
 const PHONE = 'browser';
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 const fold = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ'`’\-\s]/g, '');
@@ -119,7 +137,8 @@ class AthanQuranCard extends HTMLElement {
     this._players = [];
     this._query = '';
     this._reciterQuery = '';
-    this._now = null; // { surah, reciter, player, ayah, state, position, duration }
+    shared.card = this;
+    this._audio = sharedAudio();
     let saved = {};
     try { saved = JSON.parse(localStorage.getItem(STORE) || '{}'); } catch (e) { saved = {}; }
     this._saved = { reciter: saved.reciter || null, speaker: saved.speaker || null, recent: saved.recent || [] };
@@ -141,7 +160,10 @@ class AthanQuranCard extends HTMLElement {
     return Boolean(state) && state.state !== 'unavailable';
   }
 
-  connectedCallback() { if (this._hass && !this._unsub && this._reciters.length) this._subscribe(); }
+  connectedCallback() {
+    shared.card = this;
+    if (this._hass && !this._unsub && this._reciters.length) this._subscribe();
+  }
 
   disconnectedCallback() {
     if (this._unsub) { this._unsub.then((u) => u()).catch(() => {}); this._unsub = null; }
@@ -152,6 +174,14 @@ class AthanQuranCard extends HTMLElement {
   _save() {
     try { localStorage.setItem(STORE, JSON.stringify(this._saved)); } catch (e) { /* private mode */ }
   }
+
+  // { surah, reciter, player, ayah, state, position, duration, error }
+  get _now() { return shared.now; }
+  set _now(value) { shared.now = value; }
+  get _token() { return shared.token; }
+  set _token(value) { shared.token = value; }
+  get _next() { return shared.next; }
+  set _next(value) { shared.next = value; }
 
   async _load() {
     const ws = (type) => this._hass.callWS({ type });
@@ -170,6 +200,7 @@ class AthanQuranCard extends HTMLElement {
     this._renderReciter();
     this._renderSpeakers();
     this._renderSurahs();
+    this._renderPlayer();
   }
 
   _subscribe() {
@@ -222,11 +253,9 @@ class AthanQuranCard extends HTMLElement {
           </div>
           <div class="track"><div class="fill"></div></div>
         </div>
-        <audio preload="auto"></audio>
       </ha-card>`;
     const root = this.shadowRoot;
     this._card = root.querySelector('ha-card');
-    this._audio = root.querySelector('audio');
     const box = root.querySelector('.reciter-box');
     root.querySelector('.reciter').addEventListener('click', () => {
       const open = !box.classList.contains('open');
@@ -264,11 +293,6 @@ class AthanQuranCard extends HTMLElement {
     root.querySelector('.stop').addEventListener('click', () => this._stop());
     root.querySelector('.prev').addEventListener('click', () => this._skip(-1));
     root.querySelector('.next').addEventListener('click', () => this._skip(1));
-    this._audio.addEventListener('ended', () => this._phoneEnded());
-    this._audio.addEventListener('timeupdate', () => this._phoneProgress());
-    this._audio.addEventListener('play', () => this._phoneState('playing'));
-    this._audio.addEventListener('pause', () => { if (!this._audio.ended) this._phoneState('paused'); });
-    this._audio.addEventListener('error', () => { if (this._now && this._now.player === PHONE) this._fail('That recording could not be played.'); });
   }
 
   _renderReciter() {
