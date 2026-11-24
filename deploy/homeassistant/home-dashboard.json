@@ -301,11 +301,21 @@
               "entities": [
                 {
                   "entity": "input_text.alexa_command",
-                  "name": "Type a command"
+                  "name": "Type a message or a command"
                 },
                 {
                   "type": "button",
-                  "name": "The Hallway Echo Pop does it as if you said it",
+                  "name": "Say it out loud on the Hallway Echo",
+                  "icon": "mdi:account-voice",
+                  "action_name": "Say",
+                  "tap_action": {
+                    "action": "perform-action",
+                    "perform_action": "script.alexa_say"
+                  }
+                },
+                {
+                  "type": "button",
+                  "name": "Do it, as if you asked Alexa",
                   "icon": "mdi:send",
                   "action_name": "Send",
                   "tap_action": {

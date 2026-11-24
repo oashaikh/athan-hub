@@ -257,17 +257,53 @@ audio_url="${audio_url%%+*}"  # and only its first part
     printf '    sequence:\n'
     printf "      - condition: template\n"
     printf "        value_template: \"{{ states('input_text.alexa_command') | trim | length > 0 }}\"\n"
-    printf '      - action: media_player.play_media\n'
-    printf '        target:\n'
-    printf '          entity_id: media_player.%s\n' "${notify_service#alexa_media_}"
-    printf '        data:\n'
-    printf "          media_content_id: \"{{ states('input_text.alexa_command') }}\"\n"
-    printf '          media_content_type: custom\n'
+    # "say ..." is spoken word for word; anything else is a command.
+    printf "      - variables:\n"
+    printf "          text: \"{{ states('input_text.alexa_command') | trim }}\"\n"
+    printf '      - if: "{{ text | lower | regex_search(%s) }}"\n' "'^(say|announce|tell everyone)[ ,:]'"
+    printf '        then:\n'
+    printf '          - action: script.alexa_say\n'
+    printf '            data:\n'
+    printf "              message: \"{{ text | regex_replace('(?i)^(say|announce|tell everyone)[ ,:]+', '') }}\"\n"
+    printf '        else:\n'
+    printf '          - action: media_player.play_media\n'
+    printf '            target:\n'
+    printf '              entity_id: media_player.%s\n' "${notify_service#alexa_media_}"
+    printf '            data:\n'
+    printf '              media_content_id: "{{ text }}"\n'
+    printf '              media_content_type: custom\n'
     printf '      - action: input_text.set_value\n'
     printf '        target:\n'
     printf '          entity_id: input_text.alexa_command\n'
     printf '        data:\n'
     printf '          value: ""\n'
+    # The Echo reads a message out loud. With no message it reads the Ask Alexa box.
+    printf '  alexa_say:\n'
+    printf '    alias: Alexa, say this\n'
+    printf '    icon: mdi:account-voice\n'
+    printf '    mode: queued\n'
+    printf '    fields:\n'
+    printf '      message:\n'
+    printf '        name: Message\n'
+    printf '        selector:\n'
+    printf '          text:\n'
+    printf '    sequence:\n'
+    printf "      - variables:\n"
+    printf "          text: \"{{ (message | default('', true) or states('input_text.alexa_command')) | trim }}\"\n"
+    printf '      - condition: template\n'
+    printf '        value_template: "{{ text | length > 0 }}"\n'
+    printf '      - action: notify.%s\n' "$notify_service"
+    printf '        data:\n'
+    printf '          message: "{{ text }}"\n'
+    printf '          data:\n'
+    printf '            type: tts\n'
+    printf '      - if: "{{ message is not defined or not message }}"\n'
+    printf '        then:\n'
+    printf '          - action: input_text.set_value\n'
+    printf '            target:\n'
+    printf '              entity_id: input_text.alexa_command\n'
+    printf '            data:\n'
+    printf '              value: ""\n'
     printf 'input_text:\n'
     printf '  alexa_command:\n'
     printf '    name: Ask Alexa\n'
@@ -375,6 +411,46 @@ if [[ -n "$camera_ip" ]]; then
 else
   rm -f "$CONFIG_DIR/packages/athan_hub_camera.yaml"
 fi
+# A push to everyone else's phone when something goes on a family list. Phones
+# come from each person's device trackers (device_tracker.x -> notify.mobile_app_x),
+# so a new family member's phone is included once the Companion app is set up.
+cat > "$CONFIG_DIR/packages/athan_hub_lists.yaml" <<'YAML'
+# Written by athan-hub deploy/setup-home-assistant.sh; edits are overwritten.
+automation lists:
+  - id: athan_hub_list_item_added
+    alias: Tell the family when something is added to a list
+    mode: queued
+    max: 50
+    triggers:
+      - trigger: event
+        event_type: call_service
+        event_data:
+          domain: todo
+          service: add_item
+    actions:
+      - variables:
+          call: "{{ trigger.event.data.service_data }}"
+          adder: "{{ trigger.event.context.user_id }}"
+          entity: "{{ call.entity_id if call.entity_id is string else call.entity_id | first }}"
+          list_name: "{{ state_attr(entity, 'friendly_name') or entity }}"
+          who: "{{ states.person | selectattr('attributes.user_id', 'eq', adder) | map(attribute='name') | first | default('Someone') }}"
+          note: "{{ call.description | default('', true) }}"
+          for_whom: "{{ note.splitlines()[0][1:] | trim if note.startswith('@') else '' }}"
+          phones: >-
+            {% set ns = namespace(out=[]) %}{% for p in states.person if p.attributes.user_id != adder %}{% for t in p.attributes.device_trackers | default([]) %}{% set ns.out = ns.out + ['mobile_app_' ~ t.split('.')[1]] %}{% endfor %}{% endfor %}{{ ns.out }}
+      - repeat:
+          for_each: "{{ phones }}"
+          sequence:
+            - action: "notify.{{ repeat.item }}"
+              continue_on_error: true
+              data:
+                title: "{{ list_name }}"
+                message: "{{ who }} added {{ call.item }}{{ ' for ' ~ for_whom if for_whom else '' }}"
+                data:
+                  group: family-lists
+                  url: /home-dashboard/lists
+                  clickAction: /home-dashboard/lists
+YAML
 install -d -m 0700 "$CONFIG_DIR/athan"
 cat > "$CONFIG_DIR/athan/camera-wifi-request" <<'SH'
 #!/bin/sh
