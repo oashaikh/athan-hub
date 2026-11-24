@@ -13,6 +13,7 @@ Home Assistant notification.
 """
 import getpass
 import json
+import re
 import hashlib
 import secrets
 import subprocess
@@ -57,7 +58,18 @@ def setup(ssid: str, key: str) -> str:
             "userid": "admin", "userkey": hashlib.md5(b"admin123").hexdigest(),
         })
         with urllib.request.urlopen(f"http://{CAMERA}/goform/getPlatformID?{query}", timeout=15) as response:
-            answer = response.read(300).decode(errors="replace")
+            response.read()
+        # getPlatformID only binds the camera; setupWifiInfo is what stores the Wi-Fi and
+        # makes it leave setup mode. It takes the name and password as hex (firmware 05.02.31.112).
+        wifi = urllib.parse.urlencode({
+            "userid": "admin", "userkey": hashlib.md5(b"admin123").hexdigest(),
+            "ssid_hex": ssid.encode().hex().upper(), "key_hex": key.encode().hex().upper(),
+        })
+        try:
+            with urllib.request.urlopen(f"http://{CAMERA}/goform/setupWifiInfo?{wifi}", timeout=15) as response:
+                answer = re.sub(r"<[^>]+>", "", response.read(300).decode(errors="replace")).strip()
+        except OSError:
+            answer = "no reply; it has left setup mode to join the Wi-Fi"
     finally:
         subprocess.run(["nmcli", "con", "down", hotspots[0]], capture_output=True)
         subprocess.run(["nmcli", "con", "delete", hotspots[0]], capture_output=True)
