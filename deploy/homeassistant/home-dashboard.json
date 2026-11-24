@@ -298,10 +298,11 @@
               "type": "custom:athan-alexa-card",
               "entity": "media_player.hallway_echo_pop",
               "phrases": [
-                "Dinner is ready",
-                "Time to pray",
-                "Come downstairs please",
-                "Bedtime in ten minutes"
+                "Zakariya, shush",
+                "Yasmeen, shush",
+                "Dinner time",
+                "All kids, come upstairs",
+                "All kids, come downstairs"
               ]
             }
           ]
