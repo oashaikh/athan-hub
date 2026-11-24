@@ -295,34 +295,13 @@
               }
             },
             {
-              "type": "entities",
-              "title": "Ask Alexa",
-              "show_header_toggle": false,
-              "entities": [
-                {
-                  "entity": "input_text.alexa_command",
-                  "name": "Type a message or a command"
-                },
-                {
-                  "type": "button",
-                  "name": "Say it out loud on the Hallway Echo",
-                  "icon": "mdi:account-voice",
-                  "action_name": "Say",
-                  "tap_action": {
-                    "action": "perform-action",
-                    "perform_action": "script.alexa_say"
-                  }
-                },
-                {
-                  "type": "button",
-                  "name": "Do it, as if you asked Alexa",
-                  "icon": "mdi:send",
-                  "action_name": "Send",
-                  "tap_action": {
-                    "action": "perform-action",
-                    "perform_action": "script.ask_alexa"
-                  }
-                }
+              "type": "custom:athan-alexa-card",
+              "entity": "media_player.hallway_echo_pop",
+              "phrases": [
+                "Dinner is ready",
+                "Time to pray",
+                "Come downstairs please",
+                "Bedtime in ten minutes"
               ]
             }
           ]
