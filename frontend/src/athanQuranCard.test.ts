@@ -24,17 +24,20 @@ describe('reciters', () => {
   })
 })
 
-function mount(player = 'browser') {
-  localStorage.setItem('athan-quran-card', JSON.stringify({ reciter: 1, player }))
+function mount(player: string | null = 'browser') {
+  localStorage.setItem('athan-quran-card', JSON.stringify({ reciter: 1, speaker: player }))
   const callWS = vi.fn(async (msg: { type: string }) => {
     if (msg.type === 'quran_hub/surahs') return surahs
     if (msg.type === 'quran_hub/recitations') return reciters
-    if (msg.type === 'quran_hub/players') return [{ entity_id: 'media_player.echo', name: 'Echo', platform: 'alexa_media', supported: true }]
+    if (msg.type === 'quran_hub/players') return [
+      { entity_id: 'media_player.echo', name: 'Echo', platform: 'alexa_media', supported: true },
+      { entity_id: 'media_player.tv', name: 'TV', platform: 'alexa_media', supported: true },
+    ]
     if (msg.type === 'quran_hub/audio_url') return { url: `/audio/${(msg as { verse_key?: string }).verse_key || 'surah'}` }
     if (msg.type === 'quran_hub/remote/play') return { duration_ms: 60000 }
     return {}
   })
-  const hass = { states: { 'media_player.echo': { state: 'idle' } }, callWS, callService: vi.fn(), connection: { subscribeMessage: vi.fn(() => Promise.resolve(() => {})) } }
+  const hass = { states: { 'media_player.echo': { state: 'idle' }, 'media_player.tv': { state: 'unavailable' } }, callWS, callService: vi.fn(), connection: { subscribeMessage: vi.fn(() => Promise.resolve(() => {})) } }
   const card = document.createElement('athan-quran-card') as HTMLElement & { setConfig(c: object): void; hass: object }
   card.setConfig({})
   document.body.append(card)
@@ -80,5 +83,16 @@ describe('athan-quran-card', () => {
       start_ayah: 1, end_ayah: 110, repetitions: 1, playback_speed: 1,
     })
     expect(root.querySelector('.player .sub')?.textContent).toContain('Echo')
+  })
+
+  it('lists every speaker, greys out one that is off, and picks the Echo first', async () => {
+    const { root } = mount(null)
+    await flush()
+    const opts = [...root.querySelectorAll('.devices .opt')] as HTMLButtonElement[]
+    expect(opts.map((o) => o.dataset.player)).toEqual(['browser', 'media_player.echo', 'media_player.tv'])
+    expect(opts.map((o) => o.disabled)).toEqual([false, false, true])
+    expect(root.querySelector('.speaker .big')?.textContent).toBe('Echo')
+    opts[0].click()
+    expect(root.querySelector('.speaker .big')?.textContent).toBe('This device')
   })
 })

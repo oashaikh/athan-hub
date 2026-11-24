@@ -23,8 +23,8 @@ h1 { font-size: 40px; font-weight: 300; letter-spacing: -0.02em; line-height: 1.
 h1 .ar { font-size: 28px; margin-left: 12px; opacity: 0.75; font-weight: 400; }
 
 .pickers { padding: 10px 16px 4px; }
-.reciter { width: 100%; display: flex; align-items: center; padding: 10px 12px; border-radius: 16px; background: rgba(255, 255, 255, 0.1); }
-.reciter:hover { background: rgba(255, 255, 255, 0.15); }
+.reciter, .speaker { width: 100%; display: flex; align-items: center; padding: 10px 12px; border-radius: 16px; background: rgba(255, 255, 255, 0.1); }
+.reciter:hover, .speaker:hover { background: rgba(255, 255, 255, 0.15); }
 .mono { flex: none; width: 42px; height: 42px; border-radius: 50%; margin-right: 12px; display: flex; align-items: center; justify-content: center;
   font-weight: 700; font-size: 15px; color: var(--ink); background: rgb(var(--accent)); }
 .grow { flex: 1; min-width: 0; }
@@ -44,11 +44,11 @@ h1 .ar { font-size: 28px; margin-left: 12px; opacity: 0.75; font-weight: 400; }
 .opt .style { font-size: 13px; color: var(--secondary-text-color); }
 .section { padding: 10px 10px 4px; }
 
-.speakers { display: flex; flex-wrap: wrap; margin: 8px -4px 0; }
-.chip { margin: 4px; height: 38px; padding: 0 14px 0 10px; border-radius: 19px; display: inline-flex; align-items: center; font-size: 14px; font-weight: 600;
-  background: rgba(255, 255, 255, 0.1); }
-.chip ha-icon { --mdc-icon-size: 18px; margin-right: 6px; }
-.chip[aria-pressed="true"] { background: rgb(var(--accent)); color: var(--ink); }
+.speaker-box { margin-top: 10px; }
+.mono.dev { background: rgba(255, 255, 255, 0.16); color: rgb(var(--accent)); }
+.opt .icon { flex: none; width: 36px; height: 36px; border-radius: 50%; margin-right: 12px; display: flex; align-items: center; justify-content: center; background: rgba(255, 255, 255, 0.1); }
+.opt:disabled { opacity: 0.45; cursor: default; }
+.opt:disabled:hover { background: none; }
 
 .search { display: flex; align-items: center; margin: 12px 16px 6px; padding: 0 6px 0 14px; border-radius: 14px; background: rgba(255, 255, 255, 0.1); }
 .sheet .search { margin: 0 0 6px; }
@@ -122,7 +122,7 @@ class AthanQuranCard extends HTMLElement {
     this._now = null; // { surah, reciter, player, ayah, state, position, duration }
     let saved = {};
     try { saved = JSON.parse(localStorage.getItem(STORE) || '{}'); } catch (e) { saved = {}; }
-    this._saved = { reciter: saved.reciter || null, player: saved.player || PHONE, recent: saved.recent || [] };
+    this._saved = { reciter: saved.reciter || null, speaker: saved.speaker || null, recent: saved.recent || [] };
     if (!this.shadowRoot) this.attachShadow({ mode: 'open' });
     this._skeleton();
   }
@@ -201,7 +201,14 @@ class AthanQuranCard extends HTMLElement {
               <div class="rows"></div>
             </div>
           </div>
-          <div class="speakers"></div>
+          <div class="speaker-box">
+            <button class="speaker" aria-expanded="false">
+              <span class="mono dev"><ha-icon icon="mdi:speaker"></ha-icon></span>
+              <span class="grow"><div class="small">Play on</div><div class="big">This device</div></span>
+              <ha-icon class="chev" icon="mdi:chevron-down"></ha-icon>
+            </button>
+            <div class="sheet"><div class="devices"></div></div>
+          </div>
         </div>
         <div class="search"><ha-icon icon="mdi:magnify"></ha-icon><input class="find-surah" placeholder="Search 114 surahs: name, meaning or number" aria-label="Search surahs"></div>
         <ul class="surahs"><li class="nothing">Loading surahs…</li></ul>
@@ -234,11 +241,18 @@ class AthanQuranCard extends HTMLElement {
       this._chooseReciter(Number(opt.dataset.id));
       box.classList.remove('open');
     });
-    root.querySelector('.speakers').addEventListener('click', (e) => {
-      const chip = e.target.closest('[data-player]');
-      if (!chip) return;
-      this._saved.player = chip.dataset.player;
+    const speakers = root.querySelector('.speaker-box');
+    root.querySelector('.speaker').addEventListener('click', () => {
+      const open = !speakers.classList.contains('open');
+      speakers.classList.toggle('open', open);
+      root.querySelector('.speaker').setAttribute('aria-expanded', String(open));
+    });
+    root.querySelector('.devices').addEventListener('click', (e) => {
+      const opt = e.target.closest('[data-player]');
+      if (!opt || opt.disabled) return;
+      this._saved.speaker = opt.dataset.player;
       this._save();
+      speakers.classList.remove('open');
       this._renderSpeakers();
     });
     root.querySelector('.find-surah').addEventListener('input', (e) => { this._query = e.target.value; this._renderSurahs(); });
@@ -283,15 +297,23 @@ class AthanQuranCard extends HTMLElement {
     this._renderReciter();
   }
 
+  // Every speaker Quran Hub can drive is listed; one that is off is greyed out.
+  // Until someone picks, the first speaker that is on is chosen.
   _renderSpeakers() {
-    const chips = [{ entity_id: PHONE, name: 'This device', icon: 'mdi:cellphone-sound' }].concat(this._players.filter((p) => this._online(p.entity_id)).map((p) => ({
-      entity_id: p.entity_id, name: p.name, icon: p.platform === 'alexa_media' ? 'mdi:speaker' : 'mdi:television',
+    const devices = [{ entity_id: PHONE, name: 'This device', icon: 'mdi:cellphone-sound', on: true }].concat(this._players.map((p) => ({
+      entity_id: p.entity_id, name: p.name, icon: p.platform === 'alexa_media' ? 'mdi:speaker' : 'mdi:television', on: this._online(p.entity_id),
     })));
-    // ponytail: a remembered speaker that is off shows "This device" until it is back.
-    const chosen = chips.some((c) => c.entity_id === this._saved.player) ? this._saved.player : PHONE;
-    this._player = chosen;
-    this.shadowRoot.querySelector('.speakers').innerHTML = chips.map((c) =>
-      `<button class="chip" data-player="${esc(c.entity_id)}" aria-pressed="${c.entity_id === chosen}"><ha-icon icon="${c.icon}"></ha-icon>${esc(c.name)}</button>`).join('');
+    const usable = devices.filter((d) => d.on);
+    const want = this._saved.speaker || (usable[1] || usable[0]).entity_id;
+    const chosen = usable.find((d) => d.entity_id === want) || usable[0];
+    this._player = chosen.entity_id;
+    const root = this.shadowRoot;
+    root.querySelector('.speaker .big').textContent = chosen.name;
+    root.querySelector('.speaker .mono').innerHTML = `<ha-icon icon="${chosen.icon}"></ha-icon>`;
+    root.querySelector('.devices').innerHTML = devices.map((d) => `<button class="opt${d === chosen ? ' on' : ''}" data-player="${esc(d.entity_id)}"${d.on ? '' : ' disabled'}>
+        <span class="icon"><ha-icon icon="${d.icon}"></ha-icon></span>
+        <span class="grow"><div class="big">${esc(d.name)}</div><div class="style">${d.entity_id === PHONE ? 'This phone, tablet or computer' : d.on ? 'Ready' : 'Switched off or offline'}</div></span>
+        <ha-icon class="tick" icon="mdi:check"></ha-icon></button>`).join('');
   }
 
   _renderSurahs() {
