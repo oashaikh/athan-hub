@@ -112,4 +112,34 @@ describe('athan-quran-card', () => {
     ;(second.root.querySelector('.toggle') as HTMLButtonElement).click()
     expect(audio.pause).toHaveBeenCalled()
   })
+
+  it('seeks an ayah reciter to the ayah under the slider', async () => {
+    const { card, root, callWS } = mount()
+    await flush()
+    const audio = (card as unknown as { _audio: HTMLAudioElement })._audio
+    audio.play = vi.fn().mockResolvedValue(undefined)
+    ;(root.querySelector('[data-surah="1"]') as HTMLButtonElement).click()
+    await flush(); await flush()
+    const seek = root.querySelector('.seek') as HTMLInputElement
+    expect(seek.disabled).toBe(false)
+    seek.value = '500'
+    seek.dispatchEvent(new Event('input'))
+    expect(root.querySelector('.times .at')?.textContent).toBe('Ayah 4')
+    seek.dispatchEvent(new Event('change'))
+    await flush(); await flush()
+    expect(callWS).toHaveBeenCalledWith({ type: 'quran_hub/audio_url', recitation_id: 1, surah_id: 1, verse_key: '1:4' })
+    expect(audio.getAttribute('src')).toBe('/audio/1:4')
+  })
+
+  it('seeks on an Echo by starting again from that ayah', async () => {
+    const { root, callWS } = mount('media_player.echo')
+    await flush()
+    ;(root.querySelector('[data-surah="18"]') as HTMLButtonElement).click()
+    await flush(); await flush()
+    const seek = root.querySelector('.seek') as HTMLInputElement
+    seek.value = '500'
+    seek.dispatchEvent(new Event('change'))
+    await flush(); await flush(); await flush()
+    expect(callWS).toHaveBeenCalledWith(expect.objectContaining({ type: 'quran_hub/remote/play', surah_id: 18, start_ayah: 56, end_ayah: 110 }))
+  })
 })

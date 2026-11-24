@@ -85,10 +85,19 @@ input::placeholder { color: rgba(255, 255, 255, 0.6); }
 .round { flex: none; width: 46px; height: 46px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-left: 8px; background: rgba(255, 255, 255, 0.12); }
 .round.main { background: rgb(var(--accent)); color: var(--ink); }
 .round:disabled { opacity: 0.4; cursor: default; }
-.track { height: 4px; border-radius: 2px; margin-top: 10px; background: rgba(255, 255, 255, 0.15); overflow: hidden; }
-.fill { height: 100%; width: 0; background: rgb(var(--accent)); transition: width 0.9s linear; }
-.wait .fill { width: 30% !important; animation: slide 1.2s ease-in-out infinite; }
-@keyframes slide { 0% { transform: translateX(-100%); } 100% { transform: translateX(340%); } }
+.seek { -webkit-appearance: none; appearance: none; display: block; width: 100%; height: 28px; margin: 6px 0 0; padding: 0; background: none; cursor: pointer; --p: 0%; }
+.seek:focus { outline: none; }
+.seek::-webkit-slider-runnable-track { height: 5px; border-radius: 3px;
+  background: linear-gradient(to right, rgb(var(--accent)) var(--p), rgba(255, 255, 255, 0.2) var(--p)); }
+.seek::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; margin-top: -6.5px; border-radius: 50%; background: #fff;
+  box-shadow: 0 0 0 5px rgba(var(--accent), 0.35); transition: transform 0.15s; }
+.seek:active::-webkit-slider-thumb { transform: scale(1.2); }
+.seek::-moz-range-track { height: 5px; border-radius: 3px; background: rgba(255, 255, 255, 0.2); }
+.seek::-moz-range-progress { height: 5px; border-radius: 3px; background: rgb(var(--accent)); }
+.seek::-moz-range-thumb { width: 18px; height: 18px; border: 0; border-radius: 50%; background: #fff; box-shadow: 0 0 0 5px rgba(var(--accent), 0.35); }
+.seek:disabled { cursor: default; opacity: 0.45; }
+.seek:disabled::-webkit-slider-thumb { visibility: hidden; }
+.times { display: flex; justify-content: space-between; font-size: 12px; font-weight: 600; color: var(--secondary-text-color); font-variant-numeric: tabular-nums; }
 .error { color: #ffb3b5; }
 `;
 
@@ -251,7 +260,8 @@ class AthanQuranCard extends HTMLElement {
             <button class="round next" aria-label="Next surah"><ha-icon icon="mdi:skip-next"></ha-icon></button>
             <button class="round stop" aria-label="Stop"><ha-icon icon="mdi:stop"></ha-icon></button>
           </div>
-          <div class="track"><div class="fill"></div></div>
+          <input class="seek" type="range" min="0" max="1000" value="0" step="1" aria-label="Seek">
+          <div class="times"><span class="at"></span><span class="total"></span></div>
         </div>
       </ha-card>`;
     const root = this.shadowRoot;
@@ -293,6 +303,9 @@ class AthanQuranCard extends HTMLElement {
     root.querySelector('.stop').addEventListener('click', () => this._stop());
     root.querySelector('.prev').addEventListener('click', () => this._skip(-1));
     root.querySelector('.next').addEventListener('click', () => this._skip(1));
+    const seek = root.querySelector('.seek');
+    seek.addEventListener('input', () => { this._dragging = true; this._renderSeek(seek.value / 1000); });
+    seek.addEventListener('change', () => { this._dragging = false; this._seek(seek.value / 1000); });
   }
 
   _renderReciter() {
@@ -369,13 +382,87 @@ class AthanQuranCard extends HTMLElement {
     toggle.disabled = n.state === 'preparing' || Boolean(n.error);
     root.querySelector('.prev').disabled = n.surah.id === 1;
     root.querySelector('.next').disabled = n.surah.id === 114;
-    root.querySelector('.player').classList.toggle('wait', n.state === 'preparing');
-    root.querySelector('.fill').style.width = n.duration ? `${Math.min(100, (100 * n.position) / n.duration)}%` : '0';
+    if (!this._dragging) this._renderSeek(null);
+  }
+
+  // How this playback can be moved through: by time (a file on this device, or
+  // a TV playing the joined file), by ayah (an ayah reciter, which starts again
+  // from the chosen ayah), or not at all (a whole-surah recording on an Echo,
+  // which the skill always plays from the top).
+  _seekMode(n) {
+    if (n.player === PHONE) return n.reciter.capability === 'ayah' ? 'ayah' : 'time';
+    const p = this._players.find((x) => x.entity_id === n.player);
+    if (p && p.platform === 'alexa_media') return n.reciter.source_kind === 'ayah' ? 'ayah' : null;
+    return 'time';
+  }
+
+  // 0..1 through the whole surah.
+  _fraction(n) {
+    const count = n.surah.ayah_count;
+    if (n.player === PHONE) {
+      if (n.reciter.capability !== 'ayah') return n.duration ? n.position / n.duration : 0;
+      const a = this._audio;
+      return (Math.max(1, n.ayah) - 1 + (a.duration ? a.currentTime / a.duration : 0)) / count;
+    }
+    if (this._seekMode(n) !== 'ayah') return n.duration ? n.position / n.duration : 0;
+    const start = n.start || 1; // the range played started at this ayah
+    return ((start - 1) + (count - start + 1) * (n.duration ? n.position / n.duration : 0)) / count;
+  }
+
+  _renderSeek(preview) {
+    const n = this._now;
+    if (!n) return;
+    const root = this.shadowRoot;
+    const seek = root.querySelector('.seek');
+    const mode = this._seekMode(n);
+    const f = Math.max(0, Math.min(1, preview === null ? this._fraction(n) : preview));
+    const count = n.surah.ayah_count;
+    seek.disabled = !mode || n.state === 'preparing' || Boolean(n.error);
+    seek.title = mode ? '' : 'This speaker plays a whole-surah recording from the start';
+    if (preview === null) seek.value = String(Math.round(f * 1000));
+    seek.style.setProperty('--p', `${(f * 100).toFixed(2)}%`);
+    const seconds = n.player === PHONE ? n.duration : n.duration / 1000;
+    const clock = (t) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
+    let at = '';
+    let total = '';
+    if (mode === 'ayah' || (!mode && n.ayah)) {
+      at = `Ayah ${Math.min(count, Math.floor(f * count) + 1)}`;
+      total = `${count} ayahs`;
+    } else if (seconds) {
+      at = clock(f * seconds);
+      total = clock(seconds);
+    }
+    root.querySelector('.times .at').textContent = at;
+    root.querySelector('.times .total').textContent = total;
+  }
+
+  _seek(f) {
+    const n = this._now;
+    if (!n || n.error || n.state === 'preparing') return;
+    const mode = this._seekMode(n);
+    const count = n.surah.ayah_count;
+    const ayah = Math.min(count, Math.floor(f * count) + 1);
+    if (mode === 'time' && n.player === PHONE) {
+      if (this._audio.duration) this._audio.currentTime = f * this._audio.duration;
+    } else if (mode === 'time') {
+      this._hass.callService('media_player', 'media_seek', { seek_position: (f * n.duration) / 1000 }, { entity_id: n.player });
+      n.position = f * n.duration;
+    } else if (mode === 'ayah' && n.player === PHONE) {
+      const token = {};
+      this._token = token;
+      this._next = null;
+      n.ayah = ayah;
+      this._phoneLoad(token).catch((e) => { if (this._token === token) this._fail(e.message || String(e)); });
+    } else if (mode === 'ayah') {
+      this._play(n.surah.id, ayah);
+      return;
+    }
+    this._renderPlayer();
   }
 
   // ---- playing -----------------------------------------------------------
 
-  async _play(surahId) {
+  async _play(surahId, startAyah) {
     const surah = this._surahs.find((s) => s.id === surahId);
     const reciter = this._reciter();
     if (!surah || !reciter) return;
@@ -383,18 +470,19 @@ class AthanQuranCard extends HTMLElement {
     const player = this._player || PHONE;
     const token = {};
     this._token = token;
-    this._now = { surah, reciter, player, ayah: 0, state: 'preparing', position: 0, duration: 0, error: null };
+    const start = startAyah || 1;
+    this._now = { surah, reciter, player, start, ayah: 0, state: 'preparing', position: 0, duration: 0, error: null };
     this._renderSurahs();
     this._renderPlayer();
     this._mediaSession();
     try {
       if (player === PHONE) {
-        this._now.ayah = reciter.capability === 'ayah' ? 1 : 0;
+        this._now.ayah = reciter.capability === 'ayah' ? start : 0;
         await this._phoneLoad(token);
       } else {
         const res = await this._hass.callWS({
           type: 'quran_hub/remote/play', entity_id: player, recitation_id: reciter.id, surah_id: surah.id,
-          start_ayah: 1, end_ayah: surah.ayah_count, repetitions: 1, playback_speed: 1,
+          start_ayah: start, end_ayah: surah.ayah_count, repetitions: 1, playback_speed: 1,
         });
         if (this._token !== token) return;
         this._now.state = 'playing';
