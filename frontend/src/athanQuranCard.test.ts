@@ -142,4 +142,18 @@ describe('athan-quran-card', () => {
     await flush(); await flush(); await flush()
     expect(callWS).toHaveBeenCalledWith(expect.objectContaining({ type: 'quran_hub/remote/play', surah_id: 18, start_ayah: 56, end_ayah: 110 }))
   })
+
+  it('pauses and resumes a speaker through Quran Hub', async () => {
+    const { root, callWS } = mount('media_player.echo')
+    await flush()
+    ;(root.querySelector('[data-surah="1"]') as HTMLButtonElement).click()
+    await flush(); await flush()
+    const toggle = root.querySelector('.toggle') as HTMLButtonElement
+    toggle.click()
+    expect(callWS).toHaveBeenLastCalledWith({ type: 'quran_hub/remote/pause', entity_id: 'media_player.echo' })
+    expect(toggle.getAttribute('aria-label')).toBe('Play')
+    toggle.click()
+    expect(callWS).toHaveBeenLastCalledWith({ type: 'quran_hub/remote/resume', entity_id: 'media_player.echo' })
+    expect(toggle.getAttribute('aria-label')).toBe('Pause')
+  })
 })

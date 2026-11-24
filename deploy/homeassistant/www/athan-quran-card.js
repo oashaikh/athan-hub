@@ -528,10 +528,13 @@ class AthanQuranCard extends HTMLElement {
       if (this._audio.paused) this._audio.play().catch((e) => this._fail(e.message)); else this._audio.pause();
       return;
     }
+    // Quran Hub pauses the speaker (an Echo by saying "pause" to it) and its
+    // events then say paused, which the Echo itself never reports.
     const pause = n.state === 'playing';
-    this._hass.callService('media_player', pause ? 'media_pause' : 'media_play', {}, { entity_id: n.player });
     n.state = pause ? 'paused' : 'playing';
     this._renderPlayer();
+    this._hass.callWS({ type: `quran_hub/remote/${pause ? 'pause' : 'resume'}`, entity_id: n.player })
+      .catch((e) => { n.state = pause ? 'playing' : 'paused'; this._renderPlayer(); this._fail(e.message || String(e)); });
   }
 
   _remoteEvent(e) {
