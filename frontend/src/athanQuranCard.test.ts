@@ -203,4 +203,18 @@ describe('athan-quran-card', () => {
     expect(audio.getAttribute('src')).toBe('/audio/1:3')
     expect(root.querySelector('.player .sub')?.textContent).toContain('This device')
   })
+
+  it('shows a speaker that was already reciting when the page opens', async () => {
+    const { card, root, callWS } = mount()
+    await flush()
+    ;(card as unknown as { _now: null })._now = null // nothing left over from earlier tests
+    ;(card as unknown as { _remoteEvent(e: object): void })._remoteEvent({
+      entity_id: 'media_player.echo', state: 'playing', verse_key: '18:5', position_ms: 4000, duration_ms: 60000,
+      recitation_id: 1, surah_id: 18, start_ayah: 1, end_ayah: 110,
+    })
+    expect(root.querySelector('.player .title')?.textContent).toBe('18. Al-Kahf')
+    expect(root.querySelector('.player .sub')?.textContent).toContain('ayah 5 of 110')
+    ;(root.querySelector('.toggle') as HTMLButtonElement).click()
+    expect(callWS).toHaveBeenLastCalledWith({ type: 'quran_hub/remote/pause', entity_id: 'media_player.echo' })
+  })
 })

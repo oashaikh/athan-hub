@@ -622,6 +622,7 @@ class AthanQuranCard extends HTMLElement {
   }
 
   _remoteEvent(e) {
+    if (!this._now) this._adopt(e);
     const n = this._now;
     if (!n || n.player === PHONE || e.entity_id !== n.player || n.state === 'preparing') return;
     n.position = e.position_ms || 0;
@@ -635,6 +636,18 @@ class AthanQuranCard extends HTMLElement {
       n.state = e.state;
     }
     this._renderPlayer();
+  }
+
+  // A speaker already reciting when the page opens (the app was closed, or it
+  // was started elsewhere): show it in the player so it can be controlled.
+  _adopt(e) {
+    if (e.state !== 'playing' && e.state !== 'paused') return;
+    const surah = this._surahs.find((s) => s.id === e.surah_id);
+    const reciter = this._reciters.find((r) => r.id === e.recitation_id);
+    if (!surah || !reciter) return;
+    this._now = { surah, reciter, player: e.entity_id, start: e.start_ayah || 1, ayah: 0, state: e.state, position: 0, duration: 0, error: null };
+    this._renderSurahs();
+    this._mediaSession();
   }
 
   // This device: a surah recording is one file; ayah reciters play ayah by ayah,
