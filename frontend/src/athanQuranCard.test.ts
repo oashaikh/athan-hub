@@ -1,0 +1,84 @@
+// The Quran player card ships from deploy/homeassistant/www; jsdom here exercises it.
+import { describe, expect, it, vi } from 'vitest'
+// @ts-expect-error plain JS module without types
+import { matchSurah, reciterList } from '../../deploy/homeassistant/www/athan-quran-card.js'
+
+const kahf = { id: 18, name_simple: 'Al-Kahf', translated_name: 'The Cave', name_arabic: 'الكهف', ayah_count: 110 }
+const surahs = [{ id: 1, name_simple: 'Al-Fatihah', translated_name: 'The Opener', name_arabic: 'الفاتحة', ayah_count: 7 }, kahf]
+const reciters = [
+  { id: 2, name: 'Mishari Rashid al-`Afasy', capability: 'surah', source_kind: 'surah', style: null },
+  { id: 3, name: 'Husary (archived)', capability: 'ayah', source_kind: 'ayah', style: 'Muallim' },
+  { id: 1, name: 'Abdul Basit', capability: 'ayah', source_kind: 'ayah', style: 'Murattal' },
+]
+
+describe('surah search', () => {
+  it('finds by name, meaning, number and Arabic', () => {
+    for (const q of ['kahf', 'Al Kahf', 'al-kahf', 'cave', '18', 'الكهف', '']) expect(matchSurah(kahf, q)).toBe(true)
+    for (const q of ['1', 'fatiha', '180']) expect(matchSurah(kahf, q)).toBe(false)
+  })
+})
+
+describe('reciters', () => {
+  it('hides archived duplicates and sorts by name', () => {
+    expect(reciterList(reciters).map((r: { id: number }) => r.id)).toEqual([1, 2])
+  })
+})
+
+function mount(player = 'browser') {
+  localStorage.setItem('athan-quran-card', JSON.stringify({ reciter: 1, player }))
+  const callWS = vi.fn(async (msg: { type: string }) => {
+    if (msg.type === 'quran_hub/surahs') return surahs
+    if (msg.type === 'quran_hub/recitations') return reciters
+    if (msg.type === 'quran_hub/players') return [{ entity_id: 'media_player.echo', name: 'Echo', platform: 'alexa_media', supported: true }]
+    if (msg.type === 'quran_hub/audio_url') return { url: `/audio/${(msg as { verse_key?: string }).verse_key || 'surah'}` }
+    if (msg.type === 'quran_hub/remote/play') return { duration_ms: 60000 }
+    return {}
+  })
+  const hass = { states: { 'media_player.echo': { state: 'idle' } }, callWS, callService: vi.fn(), connection: { subscribeMessage: vi.fn(() => Promise.resolve(() => {})) } }
+  const card = document.createElement('athan-quran-card') as HTMLElement & { setConfig(c: object): void; hass: object }
+  card.setConfig({})
+  document.body.append(card)
+  card.hass = hass
+  return { card, root: card.shadowRoot as ShadowRoot, callWS }
+}
+
+const flush = () => new Promise((r) => setTimeout(r, 0))
+
+describe('athan-quran-card', () => {
+  it('lists surahs and filters them as you type', async () => {
+    const { root } = mount()
+    await flush()
+    expect(root.querySelectorAll('.surah').length).toBe(2)
+    const input = root.querySelector('.find-surah') as HTMLInputElement
+    input.value = 'cave'
+    input.dispatchEvent(new Event('input'))
+    expect([...root.querySelectorAll('.surah')].map((b) => (b as HTMLElement).dataset.surah)).toEqual(['18'])
+  })
+
+  it('plays an ayah reciter on this device ayah by ayah', async () => {
+    const { root, callWS } = mount()
+    await flush()
+    const audio = root.querySelector('audio') as HTMLAudioElement
+    audio.play = vi.fn().mockResolvedValue(undefined)
+    ;(root.querySelector('[data-surah="1"]') as HTMLButtonElement).click()
+    await flush(); await flush()
+    expect(callWS).toHaveBeenCalledWith({ type: 'quran_hub/audio_url', recitation_id: 1, surah_id: 1, verse_key: '1:1' })
+    expect(audio.getAttribute('src')).toBe('/audio/1:1')
+    audio.dispatchEvent(new Event('ended'))
+    await flush(); await flush()
+    expect(audio.getAttribute('src')).toBe('/audio/1:2')
+    expect(root.querySelector('.player .sub')?.textContent).toContain('ayah 2 of 7')
+  })
+
+  it('sends a whole surah to a speaker', async () => {
+    const { root, callWS } = mount('media_player.echo')
+    await flush()
+    ;(root.querySelector('[data-surah="18"]') as HTMLButtonElement).click()
+    await flush(); await flush()
+    expect(callWS).toHaveBeenCalledWith({
+      type: 'quran_hub/remote/play', entity_id: 'media_player.echo', recitation_id: 1, surah_id: 18,
+      start_ayah: 1, end_ayah: 110, repetitions: 1, playback_speed: 1,
+    })
+    expect(root.querySelector('.player .sub')?.textContent).toContain('Echo')
+  })
+})

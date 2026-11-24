@@ -1259,6 +1259,18 @@
           "empty": "All packed"
         }
       ]
+    },
+    {
+      "title": "Quran",
+      "path": "quran",
+      "icon": "mdi:book-open-page-variant",
+      "theme": "Athan Glass",
+      "type": "panel",
+      "cards": [
+        {
+          "type": "custom:athan-quran-card"
+        }
+      ]
     }
   ]
 }

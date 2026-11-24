@@ -45,6 +45,7 @@ install -m 0644 "$SCRIPT_DIR/homeassistant/themes/athan_glass.yaml" "$CONFIG_DIR
 install -m 0644 "$SCRIPT_DIR/homeassistant/www/athan-tv-nav.js" "$CONFIG_DIR/www/athan-tv-nav.js"
 install -m 0644 "$SCRIPT_DIR/homeassistant/www/athan-list-card.js" "$CONFIG_DIR/www/athan-list-card.js"
 install -m 0644 "$SCRIPT_DIR/homeassistant/www/athan-alexa-card.js" "$CONFIG_DIR/www/athan-alexa-card.js"
+install -m 0644 "$SCRIPT_DIR/homeassistant/www/athan-quran-card.js" "$CONFIG_DIR/www/athan-quran-card.js"
 
 if [[ ! -f "$CONFIG_DIR/custom_components/alexa_media/manifest.json" ]]; then
   log "Installing Alexa Media Player"
@@ -641,6 +642,7 @@ async def main():
             "/local/athan-tv-nav.js?v=1": "module",
             "/local/athan-list-card.js?v=2": "module",
             "/local/athan-alexa-card.js?v=2": "module",
+            "/local/athan-quran-card.js?v=2": "module",
             "https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;700&display=swap": "css",
         }
         # A resource is matched by its path, so a new ?v= replaces the old one
