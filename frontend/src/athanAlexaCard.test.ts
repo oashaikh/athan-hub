@@ -1,6 +1,5 @@
 // The Ask Alexa card ships from deploy/homeassistant/www; jsdom here exercises it.
 import { describe, expect, it, vi } from 'vitest'
-// @ts-expect-error plain JS module without types
 import '../../deploy/homeassistant/www/athan-alexa-card.js'
 
 function mount() {

@@ -37,7 +37,7 @@ function mount(player: string | null = 'browser') {
     if (msg.type === 'quran_hub/remote/play') return { duration_ms: 60000 }
     return {}
   })
-  const hass = { states: { 'media_player.echo': { state: 'idle' }, 'media_player.tv': { state: 'unavailable' } }, callWS, callService: vi.fn(), connection: { subscribeMessage: vi.fn(() => Promise.resolve(() => {})) } }
+  const hass = { states: { 'media_player.echo': { state: 'idle', attributes: { volume_level: 0.4 } }, 'media_player.tv': { state: 'unavailable' } }, callWS, callService: vi.fn().mockResolvedValue(undefined), connection: { subscribeMessage: vi.fn(() => Promise.resolve(() => {})) } }
   const card = document.createElement('athan-quran-card') as HTMLElement & { setConfig(c: object): void; hass: object }
   card.setConfig({})
   document.body.append(card)
@@ -155,5 +155,37 @@ describe('athan-quran-card', () => {
     toggle.click()
     expect(callWS).toHaveBeenLastCalledWith({ type: 'quran_hub/remote/resume', entity_id: 'media_player.echo' })
     expect(toggle.getAttribute('aria-label')).toBe('Pause')
+  })
+
+  it('sets the speaker volume and mutes', async () => {
+    const { root } = mount('media_player.echo')
+    await flush()
+    ;(root.querySelector('[data-surah="1"]') as HTMLButtonElement).click()
+    await flush(); await flush()
+    const card = root.host as unknown as { _hass: { callService: ReturnType<typeof vi.fn> } }
+    const volume = root.querySelector('.volume') as HTMLInputElement
+    expect(volume.value).toBe('40')
+    volume.value = '70'
+    volume.dispatchEvent(new Event('input'))
+    expect(root.querySelector('.vol .pct')?.textContent).toBe('70%')
+    volume.dispatchEvent(new Event('change'))
+    expect(card._hass.callService).toHaveBeenLastCalledWith('media_player', 'volume_set', { volume_level: 0.7 }, { entity_id: 'media_player.echo' })
+    ;(root.querySelector('.mute') as HTMLButtonElement).click()
+    expect(card._hass.callService).toHaveBeenLastCalledWith('media_player', 'volume_set', { volume_level: 0 }, { entity_id: 'media_player.echo' })
+    ;(root.querySelector('.mute') as HTMLButtonElement).click()
+    expect(card._hass.callService).toHaveBeenLastCalledWith('media_player', 'volume_set', { volume_level: 0.7 }, { entity_id: 'media_player.echo' })
+  })
+
+  it('sets this device volume', async () => {
+    const { card, root } = mount()
+    await flush()
+    const audio = (card as unknown as { _audio: HTMLAudioElement })._audio
+    audio.play = vi.fn().mockResolvedValue(undefined)
+    ;(root.querySelector('[data-surah="1"]') as HTMLButtonElement).click()
+    await flush(); await flush()
+    const volume = root.querySelector('.volume') as HTMLInputElement
+    volume.value = '25'
+    volume.dispatchEvent(new Event('change'))
+    expect(audio.volume).toBe(0.25)
   })
 })

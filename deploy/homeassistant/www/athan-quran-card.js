@@ -85,18 +85,23 @@ input::placeholder { color: rgba(255, 255, 255, 0.6); }
 .round { flex: none; width: 46px; height: 46px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-left: 8px; background: rgba(255, 255, 255, 0.12); }
 .round.main { background: rgb(var(--accent)); color: var(--ink); }
 .round:disabled { opacity: 0.4; cursor: default; }
-.seek { -webkit-appearance: none; appearance: none; display: block; width: 100%; height: 28px; margin: 6px 0 0; padding: 0; background: none; cursor: pointer; --p: 0%; }
-.seek:focus { outline: none; }
-.seek::-webkit-slider-runnable-track { height: 5px; border-radius: 3px;
+.bar { -webkit-appearance: none; appearance: none; display: block; width: 100%; height: 28px; margin: 6px 0 0; padding: 0; background: none; cursor: pointer; --p: 0%; }
+.bar:focus { outline: none; }
+.bar::-webkit-slider-runnable-track { height: 5px; border-radius: 3px;
   background: linear-gradient(to right, rgb(var(--accent)) var(--p), rgba(255, 255, 255, 0.2) var(--p)); }
-.seek::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; margin-top: -6.5px; border-radius: 50%; background: #fff;
+.bar::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; margin-top: -6.5px; border-radius: 50%; background: #fff;
   box-shadow: 0 0 0 5px rgba(var(--accent), 0.35); transition: transform 0.15s; }
-.seek:active::-webkit-slider-thumb { transform: scale(1.2); }
-.seek::-moz-range-track { height: 5px; border-radius: 3px; background: rgba(255, 255, 255, 0.2); }
-.seek::-moz-range-progress { height: 5px; border-radius: 3px; background: rgb(var(--accent)); }
-.seek::-moz-range-thumb { width: 18px; height: 18px; border: 0; border-radius: 50%; background: #fff; box-shadow: 0 0 0 5px rgba(var(--accent), 0.35); }
-.seek:disabled { cursor: default; opacity: 0.45; }
-.seek:disabled::-webkit-slider-thumb { visibility: hidden; }
+.bar:active::-webkit-slider-thumb { transform: scale(1.2); }
+.bar::-moz-range-track { height: 5px; border-radius: 3px; background: rgba(255, 255, 255, 0.2); }
+.bar::-moz-range-progress { height: 5px; border-radius: 3px; background: rgb(var(--accent)); }
+.bar::-moz-range-thumb { width: 18px; height: 18px; border: 0; border-radius: 50%; background: #fff; box-shadow: 0 0 0 5px rgba(var(--accent), 0.35); }
+.bar:disabled { cursor: default; opacity: 0.45; }
+.bar:disabled::-webkit-slider-thumb { visibility: hidden; }
+.vol { display: flex; align-items: center; margin-top: 4px; }
+.vol .mute { flex: none; width: 36px; height: 36px; margin: 0 6px 0 -8px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--secondary-text-color); }
+.vol .bar { flex: 1; margin: 0; }
+.vol .pct { flex: none; width: 42px; text-align: right; font-size: 12px; font-weight: 600; color: var(--secondary-text-color); font-variant-numeric: tabular-nums; }
+.novol .vol { display: none; }
 .times { display: flex; justify-content: space-between; font-size: 12px; font-weight: 600; color: var(--secondary-text-color); font-variant-numeric: tabular-nums; }
 .error { color: #ffb3b5; }
 `;
@@ -121,6 +126,12 @@ function sharedAudio() {
   return a;
 }
 const PHONE = 'browser';
+// iOS ignores audio.volume: setting it reads back as 1.
+let canSetVolume = null;
+function pageVolume() {
+  if (canSetVolume === null) { const a = new Audio(); a.volume = 0.5; canSetVolume = a.volume === 0.5; }
+  return canSetVolume;
+}
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 const fold = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ'`’\-\s]/g, '');
 const initials = (name) => name.replace(/\(.*?\)/g, '').split(/[\s-]+/).filter((w) => /^[A-Z]/.test(w)).map((w) => w[0]).slice(0, 2).join('');
@@ -260,8 +271,13 @@ class AthanQuranCard extends HTMLElement {
             <button class="round next" aria-label="Next surah"><ha-icon icon="mdi:skip-next"></ha-icon></button>
             <button class="round stop" aria-label="Stop"><ha-icon icon="mdi:stop"></ha-icon></button>
           </div>
-          <input class="seek" type="range" min="0" max="1000" value="0" step="1" aria-label="Seek">
+          <input class="bar seek" type="range" min="0" max="1000" value="0" step="1" aria-label="Seek">
           <div class="times"><span class="at"></span><span class="total"></span></div>
+          <div class="vol">
+            <button class="mute" aria-label="Mute"><ha-icon icon="mdi:volume-high"></ha-icon></button>
+            <input class="bar volume" type="range" min="0" max="100" value="50" step="1" aria-label="Volume">
+            <span class="pct"></span>
+          </div>
         </div>
       </ha-card>`;
     const root = this.shadowRoot;
@@ -306,6 +322,13 @@ class AthanQuranCard extends HTMLElement {
     const seek = root.querySelector('.seek');
     seek.addEventListener('input', () => { this._dragging = true; this._renderSeek(seek.value / 1000); });
     seek.addEventListener('change', () => { this._dragging = false; this._seek(seek.value / 1000); });
+    const volume = root.querySelector('.volume');
+    volume.addEventListener('input', () => { this._volDragging = true; this._renderVolume(volume.value / 100); });
+    volume.addEventListener('change', () => { this._volDragging = false; this._setVolume(volume.value / 100); });
+    root.querySelector('.mute').addEventListener('click', () => {
+      const v = this._volume();
+      if (v > 0) { this._unmuteTo = v; this._setVolume(0); } else this._setVolume(this._unmuteTo || 0.5);
+    });
   }
 
   _renderReciter() {
@@ -383,6 +406,51 @@ class AthanQuranCard extends HTMLElement {
     root.querySelector('.prev').disabled = n.surah.id === 1;
     root.querySelector('.next').disabled = n.surah.id === 114;
     if (!this._dragging) this._renderSeek(null);
+    if (!this._volDragging) this._renderVolume(null);
+  }
+
+  // Volume of whatever is playing: this device's audio, or the speaker's own
+  // volume in Home Assistant. iPhones and iPads ignore page volume (the side
+  // buttons are the only control there), so the slider hides on them.
+  _volume() {
+    const n = this._now;
+    if (!n) return 0;
+    if (n.player === PHONE) return this._audio.muted ? 0 : this._audio.volume;
+    if (this._pendingVolume && this._pendingVolume.player === n.player && Date.now() < this._pendingVolume.until) return this._pendingVolume.v;
+    const state = this._hass && this._hass.states[n.player];
+    const a = (state && state.attributes) || {};
+    return a.is_volume_muted ? 0 : typeof a.volume_level === 'number' ? a.volume_level : 0.5;
+  }
+
+  _renderVolume(preview) {
+    const n = this._now;
+    if (!n) return;
+    const root = this.shadowRoot;
+    this._card.classList.toggle('novol', n.player === PHONE && !pageVolume());
+    const v = preview === null ? this._volume() : preview;
+    const bar = root.querySelector('.volume');
+    if (preview === null) bar.value = String(Math.round(v * 100));
+    bar.style.setProperty('--p', `${Math.round(v * 100)}%`);
+    root.querySelector('.vol .pct').textContent = `${Math.round(v * 100)}%`;
+    const icon = v === 0 ? 'mdi:volume-off' : v < 0.5 ? 'mdi:volume-medium' : 'mdi:volume-high';
+    const mute = root.querySelector('.mute');
+    if (mute.dataset.icon !== icon) { mute.dataset.icon = icon; mute.innerHTML = `<ha-icon icon="${icon}"></ha-icon>`; }
+    mute.setAttribute('aria-label', v === 0 ? 'Unmute' : 'Mute');
+  }
+
+  _setVolume(v) {
+    const n = this._now;
+    if (!n) return;
+    if (n.player === PHONE) {
+      this._audio.muted = false;
+      this._audio.volume = v;
+    } else {
+      // Home Assistant's state catches up a moment later; show the new level now.
+      this._pendingVolume = { player: n.player, v, until: Date.now() + 4000 };
+      this._hass.callService('media_player', 'volume_set', { volume_level: v }, { entity_id: n.player })
+        .catch((e) => this._fail(e.message || String(e)));
+    }
+    this._renderVolume(v);
   }
 
   // How this playback can be moved through: by time (a file on this device, or
