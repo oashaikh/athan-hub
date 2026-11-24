@@ -188,4 +188,19 @@ describe('athan-quran-card', () => {
     volume.dispatchEvent(new Event('change'))
     expect(audio.volume).toBe(0.25)
   })
+
+  it('moves what is playing when another speaker is picked', async () => {
+    const { card, root, callWS } = mount('media_player.echo')
+    await flush()
+    const audio = (card as unknown as { _audio: HTMLAudioElement })._audio
+    audio.play = vi.fn().mockResolvedValue(undefined)
+    ;(root.querySelector('[data-surah="1"]') as HTMLButtonElement).click()
+    await flush(); await flush()
+    ;(card as unknown as { _remoteEvent(e: object): void })._remoteEvent({ entity_id: 'media_player.echo', state: 'playing', verse_key: '1:3', position_ms: 1000, duration_ms: 60000 })
+    ;(root.querySelector('.devices [data-player="browser"]') as HTMLButtonElement).click()
+    await flush(); await flush(); await flush()
+    expect(callWS).toHaveBeenCalledWith({ type: 'quran_hub/remote/stop', entity_id: 'media_player.echo' })
+    expect(audio.getAttribute('src')).toBe('/audio/1:3')
+    expect(root.querySelector('.player .sub')?.textContent).toContain('This device')
+  })
 })

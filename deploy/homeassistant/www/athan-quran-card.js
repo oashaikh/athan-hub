@@ -309,6 +309,7 @@ class AthanQuranCard extends HTMLElement {
       this._save();
       speakers.classList.remove('open');
       this._renderSpeakers();
+      this._move();
     });
     root.querySelector('.find-surah').addEventListener('input', (e) => { this._query = e.target.value; this._renderSurahs(); });
     root.querySelector('.surahs').addEventListener('click', (e) => {
@@ -534,8 +535,11 @@ class AthanQuranCard extends HTMLElement {
     const surah = this._surahs.find((s) => s.id === surahId);
     const reciter = this._reciter();
     if (!surah || !reciter) return;
-    await this._stop(true);
     const player = this._player || PHONE;
+    // Stopping the speaker it was on only needs waiting for when the same
+    // speaker starts again; moving to another one starts it straight away.
+    const stopping = this._stop(true);
+    if (this._now && this._now.player === player) await stopping;
     const token = {};
     this._token = token;
     const start = startAyah || 1;
@@ -583,6 +587,18 @@ class AthanQuranCard extends HTMLElement {
       this._renderSurahs();
       this._renderPlayer();
     }
+  }
+
+  // A new speaker picked while something plays: carry on there from the same
+  // ayah (or the same moment of a whole-surah recording).
+  async _move() {
+    const n = this._now;
+    if (!n || n.player === this._player || n.state === 'preparing') return;
+    const f = this._fraction(n);
+    const ayah = n.ayah || Math.min(n.surah.ayah_count, Math.floor(f * n.surah.ayah_count) + 1);
+    await this._play(n.surah.id, ayah);
+    const now = this._now;
+    if (now && !now.error && f > 0.01 && this._seekMode(now) === 'time') this._seek(f);
   }
 
   _skip(step) {
