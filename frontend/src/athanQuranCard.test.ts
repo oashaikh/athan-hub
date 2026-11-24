@@ -217,4 +217,34 @@ describe('athan-quran-card', () => {
     ;(root.querySelector('.toggle') as HTMLButtonElement).click()
     expect(callWS).toHaveBeenLastCalledWith({ type: 'quran_hub/remote/pause', entity_id: 'media_player.echo' })
   })
+
+  it('remembers the ayah after the app is closed and carries on from it', async () => {
+    const first = mount()
+    await flush()
+    const audio = (first.card as unknown as { _audio: HTMLAudioElement })._audio
+    audio.play = vi.fn().mockResolvedValue(undefined)
+    ;(first.root.querySelector('[data-surah="18"]') as HTMLButtonElement).click()
+    await flush(); await flush()
+    audio.dispatchEvent(new Event('ended'))
+    await flush(); await flush()
+    audio.dispatchEvent(new Event('ended'))
+    await flush(); await flush()
+    expect(JSON.parse(localStorage.getItem('athan-quran-card') || '{}').resume).toMatchObject({ surah: 18, reciter: 1, ayah: 3 })
+    // The app is closed: the page and everything in it is gone.
+    first.card.remove()
+    ;(first.card as unknown as { _now: null })._now = null
+    const saved = localStorage.getItem('athan-quran-card') as string
+    const second = mount()
+    localStorage.setItem('athan-quran-card', saved)
+    second.card.setConfig({})
+    ;(second.card as unknown as { _load(): Promise<void> })._load()
+    await flush()
+    const root = second.card.shadowRoot as ShadowRoot
+    expect(root.querySelector('.player .title')?.textContent).toBe('18. Al-Kahf')
+    expect(root.querySelector('.player .sub')?.textContent).toContain('ayah 3 of 110')
+    expect(root.querySelector('.toggle')?.getAttribute('aria-label')).toBe('Play')
+    ;(root.querySelector('.toggle') as HTMLButtonElement).click()
+    await flush(); await flush()
+    expect(second.callWS).toHaveBeenCalledWith({ type: 'quran_hub/audio_url', recitation_id: 1, surah_id: 18, verse_key: '18:3' })
+  })
 })

@@ -161,7 +161,7 @@ class AthanQuranCard extends HTMLElement {
     this._audio = sharedAudio();
     let saved = {};
     try { saved = JSON.parse(localStorage.getItem(STORE) || '{}'); } catch (e) { saved = {}; }
-    this._saved = { reciter: saved.reciter || null, speaker: saved.speaker || null, recent: saved.recent || [] };
+    this._saved = { reciter: saved.reciter || null, speaker: saved.speaker || null, recent: saved.recent || [], resume: saved.resume || null };
     if (!this.shadowRoot) this.attachShadow({ mode: 'open' });
     this._skeleton();
   }
@@ -219,8 +219,37 @@ class AthanQuranCard extends HTMLElement {
     this._subscribe();
     this._renderReciter();
     this._renderSpeakers();
+    if (!this._now) this._restore();
     this._renderSurahs();
     this._renderPlayer();
+  }
+
+  // Where listening stopped when the app was closed: shown paused, and Play
+  // carries on from that ayah on the chosen speaker.
+  _restore() {
+    const r = this._saved.resume;
+    const surah = r && this._surahs.find((s) => s.id === r.surah);
+    const reciter = r && this._reciter(r.reciter);
+    if (!surah || !reciter) return;
+    this._now = { surah, reciter, player: this._player || PHONE, start: r.ayah || 1, ayah: r.ayah || 0, state: 'paused',
+      position: 0, duration: 0, error: null, resume: r.f || 0 };
+  }
+
+  _remember() {
+    const n = this._now;
+    if (!n || n.error || n.resume !== undefined || n.state === 'preparing') return;
+    const f = this._fraction(n);
+    const ayah = n.ayah || Math.min(n.surah.ayah_count, Math.floor(f * n.surah.ayah_count) + 1);
+    const r = this._saved.resume;
+    if (r && r.surah === n.surah.id && r.reciter === n.reciter.id && r.ayah === ayah && Math.abs(r.f - f) < 0.002) return;
+    this._saved.resume = { surah: n.surah.id, reciter: n.reciter.id, ayah, f };
+    this._save();
+  }
+
+  _forget() {
+    if (!this._saved.resume) return;
+    this._saved.resume = null;
+    this._save();
   }
 
   _subscribe() {
@@ -408,6 +437,7 @@ class AthanQuranCard extends HTMLElement {
     root.querySelector('.next').disabled = n.surah.id === 114;
     if (!this._dragging) this._renderSeek(null);
     if (!this._volDragging) this._renderVolume(null);
+    this._remember();
   }
 
   // Volume of whatever is playing: this device's audio, or the speaker's own
@@ -467,6 +497,7 @@ class AthanQuranCard extends HTMLElement {
 
   // 0..1 through the whole surah.
   _fraction(n) {
+    if (n.resume !== undefined) return n.resume;
     const count = n.surah.ayah_count;
     if (n.player === PHONE) {
       if (n.reciter.capability !== 'ayah') return n.duration ? n.position / n.duration : 0;
@@ -511,7 +542,10 @@ class AthanQuranCard extends HTMLElement {
     const mode = this._seekMode(n);
     const count = n.surah.ayah_count;
     const ayah = Math.min(count, Math.floor(f * count) + 1);
-    if (mode === 'time' && n.player === PHONE) {
+    if (n.resume !== undefined) {
+      n.resume = f;
+      n.ayah = ayah;
+    } else if (mode === 'time' && n.player === PHONE) {
       if (this._audio.duration) this._audio.currentTime = f * this._audio.duration;
     } else if (mode === 'time') {
       this._hass.callService('media_player', 'media_seek', { seek_position: (f * n.duration) / 1000 }, { entity_id: n.player });
@@ -531,9 +565,9 @@ class AthanQuranCard extends HTMLElement {
 
   // ---- playing -----------------------------------------------------------
 
-  async _play(surahId, startAyah) {
+  async _play(surahId, startAyah, reciterOverride) {
     const surah = this._surahs.find((s) => s.id === surahId);
-    const reciter = this._reciter();
+    const reciter = reciterOverride || this._reciter();
     if (!surah || !reciter) return;
     const player = this._player || PHONE;
     // Stopping the speaker it was on only needs waiting for when the same
@@ -579,10 +613,11 @@ class AthanQuranCard extends HTMLElement {
     this._audio.pause();
     this._audio.removeAttribute('src');
     this._next = null;
-    if (n && n.player !== PHONE && !n.error) {
+    if (n && n.player !== PHONE && !n.error && n.resume === undefined) {
       try { await this._hass.callWS({ type: 'quran_hub/remote/stop', entity_id: n.player }); } catch (e) { /* already stopped */ }
     }
     if (!quiet) {
+      this._forget();
       this._now = null;
       this._renderSurahs();
       this._renderPlayer();
@@ -591,12 +626,17 @@ class AthanQuranCard extends HTMLElement {
 
   // A new speaker picked while something plays: carry on there from the same
   // ayah (or the same moment of a whole-surah recording).
-  async _move() {
+  _move() {
     const n = this._now;
     if (!n || n.player === this._player || n.state === 'preparing') return;
+    if (n.resume !== undefined) { n.player = this._player; this._renderPlayer(); return; }
+    this._carryOn(n);
+  }
+
+  async _carryOn(n) {
     const f = this._fraction(n);
     const ayah = n.ayah || Math.min(n.surah.ayah_count, Math.floor(f * n.surah.ayah_count) + 1);
-    await this._play(n.surah.id, ayah);
+    await this._play(n.surah.id, ayah, n.reciter);
     const now = this._now;
     if (now && !now.error && f > 0.01 && this._seekMode(now) === 'time') this._seek(f);
   }
@@ -608,6 +648,7 @@ class AthanQuranCard extends HTMLElement {
   _toggle() {
     const n = this._now;
     if (!n || n.error) return;
+    if (n.resume !== undefined) { this._carryOn(n); return; }
     if (n.player === PHONE) {
       if (this._audio.paused) this._audio.play().catch((e) => this._fail(e.message)); else this._audio.pause();
       return;
@@ -622,14 +663,15 @@ class AthanQuranCard extends HTMLElement {
   }
 
   _remoteEvent(e) {
-    if (!this._now) this._adopt(e);
+    if (!this._now || this._now.resume !== undefined) this._adopt(e);
     const n = this._now;
-    if (!n || n.player === PHONE || e.entity_id !== n.player || n.state === 'preparing') return;
+    if (!n || n.resume !== undefined || n.player === PHONE || e.entity_id !== n.player || n.state === 'preparing') return;
     n.position = e.position_ms || 0;
     n.duration = e.duration_ms || n.duration;
     const key = e.verse_key ? String(e.verse_key).split(':') : null;
     if (key && Number(key[0]) === n.surah.id) n.ayah = Number(key[1]);
     if (e.state === 'finished' || e.state === 'stopped') {
+      if (e.state === 'finished') this._forget();
       this._now = null;
       this._renderSurahs();
     } else {
@@ -690,6 +732,7 @@ class AthanQuranCard extends HTMLElement {
       return;
     }
     if (this._token !== token) return;
+    this._forget();
     this._now = null;
     this._renderSurahs();
     this._renderPlayer();
